@@ -8,7 +8,7 @@ import (
 type AstPrinter struct {
 }
 
-func (a AstPrinter) VisitLiteral(literal Literal) any {
+func (a AstPrinter) VisitLiteral(literal LiteralExpr) any {
 	if literal.Value == nil {
 		return ""
 	}
@@ -16,11 +16,11 @@ func (a AstPrinter) VisitLiteral(literal Literal) any {
 	return fmt.Sprintf("%v", literal.Value)
 }
 
-func (a AstPrinter) VisitGrouping(grouping Grouping) any {
+func (a AstPrinter) VisitGrouping(grouping GroupingExpr) any {
 	return a.parenthesize("group", grouping.Expr)
 }
 
-func (a AstPrinter) VisitUnary(unary Unary) any {
+func (a AstPrinter) VisitUnary(unary UnaryExpr) any {
 	return a.parenthesize(unary.Operator.Lexeme, unary.Right)
 }
 
@@ -28,8 +28,8 @@ func (a AstPrinter) VisitBinary(binary Binary) any {
 	return a.parenthesize(binary.Operator.Lexeme, binary.Left, binary.Right)
 }
 
-func (a AstPrinter) VisitTernary(ternary Ternary) any {
-	return fmt.Sprintf("(?: %v %v %v)", ternary.Left.Accept(a), ternary.Middle.Accept(a), ternary.Right.Accept(a))
+func (a AstPrinter) VisitTernary(ternary TernaryExpr) any {
+	return fmt.Sprintf("(?: %v %v %v)", ternary.Condition.Accept(a), ternary.Left.Accept(a), ternary.Right.Accept(a))
 }
 
 func (a AstPrinter) parenthesize(name string, exprs ...Expr) string {

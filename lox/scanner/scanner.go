@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"glox/lox/lox-error"
 	"strconv"
 )
 
@@ -79,7 +78,7 @@ func (s *Scanner) addToken(tokenType TokenType, literal any) {
 	s.tokens = append(s.tokens, Token{Type: tokenType, Lexeme: lexeme, Literal: literal, Line: s.line})
 }
 
-func (s *Scanner) blockComment() {
+func (s *Scanner) blockComment() error {
 	indents := 1
 
 	s.advance()
@@ -105,11 +104,13 @@ func (s *Scanner) blockComment() {
 	}
 
 	if indents != 0 {
-		loxError.Report(s.line, "Unterminated block comment.")
+		return &Error{Line: s.line, Message: "Unterminated block comment."}
 	}
+
+	return nil
 }
 
-func (s *Scanner) string() {
+func (s *Scanner) string() error {
 	for s.peek() != '"' && !s.isAtEnd() {
 		if s.peek() == '\n' {
 			s.line++
@@ -117,11 +118,12 @@ func (s *Scanner) string() {
 		s.advance()
 	}
 	if s.isAtEnd() {
-		loxError.Report(s.line, "Unterminated string.")
-		return
+		return &Error{Line: s.line, Message: "Unterminated string."}
 	}
 	s.advance()
 	s.addToken(STRING, s.source[s.start+1:s.current-1])
+
+	return nil
 }
 
 func (s *Scanner) number() {
@@ -151,7 +153,7 @@ func (s *Scanner) identifier() {
 	s.addToken(tokenType, nil)
 }
 
-func (s *Scanner) Run() []Token {
+func (s *Scanner) Run() ([]Token, error) {
 	for !s.isAtEnd() {
 		char := s.advance()
 
@@ -198,7 +200,9 @@ func (s *Scanner) Run() []Token {
 					s.advance()
 				}
 			} else if s.match('*') {
-				s.blockComment()
+				if err := s.blockComment(); err != nil {
+					return nil, err
+				}
 			} else {
 				s.addToken(SLASH, nil)
 			}
@@ -233,7 +237,9 @@ func (s *Scanner) Run() []Token {
 				s.addToken(LESS, nil)
 			}
 		case '"':
-			s.string()
+			if err := s.string(); err != nil {
+				return nil, err
+			}
 			break
 		case ' ':
 		case '\r':
@@ -248,13 +254,12 @@ func (s *Scanner) Run() []Token {
 			} else if s.isAlpha(char) {
 				s.identifier()
 			} else {
-				loxError.Report(s.line, "Unexpected character.")
-				break
+				return nil, &Error{Line: s.line, Message: "Unexpected character."}
 			}
 		}
 		s.start = s.current
 	}
 	s.addToken(EOF, nil)
 
-	return s.tokens
+	return s.tokens, nil
 }

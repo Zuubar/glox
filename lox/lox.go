@@ -3,7 +3,7 @@ package lox
 import (
 	"bufio"
 	"fmt"
-	"glox/lox/lox-error"
+	"glox/lox/interpreter"
 	"glox/lox/parser"
 	"glox/lox/scanner"
 	"os"
@@ -11,16 +11,34 @@ import (
 
 func run(source string) {
 	scnr := scanner.New(source)
+	tokens, err := scnr.Run()
 
-	tokens := scnr.Run()
-	prsr := parser.New(tokens)
-	ast, _ := prsr.Run()
-
+	if err != nil {
+		fmt.Print(err.Error())
+		return
+	}
 	fmt.Printf("Scanner: %v\n", tokens)
+
+	prsr := parser.New(tokens)
+	ast, err := prsr.Run()
+
+	if err != nil {
+		fmt.Print(err.Error())
+		return
+	}
 	fmt.Printf("AST: %v\n", parser.AstPrinter{}.Print(ast))
+
+	inter := interpreter.New(ast)
+	result, err := inter.Run()
+	if err != nil {
+		fmt.Print(err.Error())
+		return
+	}
+	fmt.Printf("Interpreted: %v\n", result)
 }
 
 func runFile(filePath string) {
+	// Todo exit codes for compile-time and runtime errors
 	source, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
@@ -29,7 +47,7 @@ func runFile(filePath string) {
 	run(string(source))
 }
 
-func Repl() {
+func repl() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -41,13 +59,12 @@ func Repl() {
 		}
 
 		run(line)
-		loxError.HadError = false
 	}
 }
 
 func Run(args []string) {
 	if len(args) == 0 {
-		Repl()
+		repl()
 	} else if len(args) == 1 {
 		runFile(args[1])
 	} else {

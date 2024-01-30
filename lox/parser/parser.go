@@ -1,9 +1,7 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
-	"glox/lox/lox-error"
 	"glox/lox/scanner"
 )
 
@@ -89,33 +87,31 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 	return expr, nil
 }
 
-func (p *Parser) reportError(token scanner.Token, message string) {
+func (p *Parser) error(token scanner.Token, message string) error {
 	if token.Type == scanner.EOF {
-		loxError.ReportAt(token.Line, " at end", message)
-	} else {
-		loxError.ReportAt(token.Line, fmt.Sprintf(" at '%s'", token.Lexeme), message)
+		return &Error{Line: token.Line, Where: " at end", Message: message}
 	}
+	return &Error{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
 }
 
 func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
 	if !p.match(tokenType) {
-		p.reportError(p.peekBehind(), errorMsg)
-		return errors.New(errorMsg)
+		return p.error(p.peekBehind(), errorMsg)
 	}
 	return nil
 }
 
 func (p *Parser) ternary() (Expr, error) {
-	left, err := p.expression()
+	condition, err := p.expression()
 	if err != nil {
 		return Error{}, err
 	}
 
 	if !p.match(scanner.QUESTION) {
-		return left, err
+		return condition, err
 	}
 
-	middle, err := p.ternary()
+	left, err := p.ternary()
 	if err != nil {
 		return Error{}, err
 	}
@@ -126,11 +122,10 @@ func (p *Parser) ternary() (Expr, error) {
 			return Error{}, err
 		}
 
-		return Ternary{Left: left, Middle: middle, Right: right}, nil
+		return TernaryExpr{Condition: condition, Left: left, Right: right}, nil
 	}
 
-	p.reportError(p.peek(), "Expected ':' after '?'.")
-	return Error{}, errors.New("Expected ':' after '?'.")
+	return Error{}, p.error(p.peek(), "Expected ':' after '?'.")
 }
 
 func (p *Parser) expression() (Expr, error) {
@@ -178,24 +173,24 @@ func (p *Parser) unary() (Expr, error) {
 		return Error{}, err
 	}
 
-	return Unary{Operator: token, Right: right}, nil
+	return UnaryExpr{Operator: token, Right: right}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {
 	if p.match(scanner.TRUE) {
-		return Literal{Value: true}, nil
+		return LiteralExpr{Value: true}, nil
 	}
 
 	if p.match(scanner.FALSE) {
-		return Literal{Value: false}, nil
+		return LiteralExpr{Value: false}, nil
 	}
 
 	if p.match(scanner.NIL) {
-		return Literal{Value: nil}, nil
+		return LiteralExpr{Value: nil}, nil
 	}
 
 	if p.match(scanner.NUMBER, scanner.STRING) {
-		return Literal{Value: p.peekBehind().Literal}, nil
+		return LiteralExpr{Value: p.peekBehind().Literal}, nil
 	}
 
 	if p.match(scanner.LEFT_PAREN) {
@@ -209,9 +204,8 @@ func (p *Parser) primary() (Expr, error) {
 			return Error{}, err
 		}
 
-		return Grouping{Expr: expr}, nil
+		return GroupingExpr{Expr: expr}, nil
 	}
 
-	p.reportError(p.peek(), "Expected an expression.")
-	return Error{}, errors.New("Expected an expression.")
+	return Error{}, p.error(p.peek(), "Expected an expression.")
 }
