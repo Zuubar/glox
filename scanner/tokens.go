@@ -59,8 +59,3 @@ type Token struct {
 	Literal any
 	Line    int32
 }
-
-//if (x < 10) { print x; } else { print "Greater than 10"; }
-//func (t Token) String() string {
-//	return fmt.Sprintf("%s %s %s", t.Type, t.Lexeme, t.Literal)
-//}

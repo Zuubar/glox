@@ -1,8 +1,8 @@
 package interpreter
 
 import (
-	"glox/lox/parser"
-	"glox/lox/scanner"
+	"glox/parser"
+	"glox/scanner"
 	"reflect"
 )
 
@@ -48,15 +48,15 @@ func (i *Interpreter) areEqual(object1 any, object2 any) bool {
 	return object1 == object2
 }
 
-func (i *Interpreter) VisitLiteral(literal parser.LiteralExpr) any {
+func (i *Interpreter) VisitLiteralExpr(literal parser.LiteralExpr) any {
 	return literal.Value
 }
 
-func (i *Interpreter) VisitGrouping(grouping parser.GroupingExpr) any {
+func (i *Interpreter) VisitGroupingExpr(grouping parser.GroupingExpr) any {
 	return grouping.Expr.Accept(i)
 }
 
-func (i *Interpreter) VisitUnary(unary parser.UnaryExpr) any {
+func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) any {
 	token, object := unary.Operator, unary.Right.Accept(i)
 
 	switch unary.Operator.Type {
@@ -71,7 +71,7 @@ func (i *Interpreter) VisitUnary(unary parser.UnaryExpr) any {
 	return Error{Token: token, Message: "Operand must be a number."}
 }
 
-func (i *Interpreter) VisitBinary(binary parser.Binary) any {
+func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) any {
 	object1, token, object2 := binary.Left.Accept(i), binary.Operator, binary.Right.Accept(i)
 
 	switch binary.Operator.Type {
@@ -96,7 +96,14 @@ func (i *Interpreter) VisitBinary(binary parser.Binary) any {
 		return Error{Token: token, Message: "Both operands should be numbers."}
 	case scanner.SLASH:
 		if i.areNumberedOperands(object1, object2) {
-			return object1.(float64) / object2.(float64)
+			left, _ := object1.(float64)
+			right, _ := object2.(float64)
+
+			if right == 0 {
+				return Error{Token: token, Message: "Division by zero is prohibited."}
+			}
+
+			return left / right
 		}
 		return Error{Token: token, Message: "Both operands should be numbers."}
 	case scanner.GREATER:
@@ -128,7 +135,7 @@ func (i *Interpreter) VisitBinary(binary parser.Binary) any {
 	return nil
 }
 
-func (i *Interpreter) VisitTernary(ternary parser.TernaryExpr) any {
+func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) any {
 	object := ternary.Condition.Accept(i)
 	if i.isTruthy(object) {
 		return ternary.Left.Accept(i)

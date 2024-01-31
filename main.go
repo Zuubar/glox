@@ -1,10 +1,10 @@
 package main
 
 import (
-	"glox/lox"
+	"glox/cmd"
 	"os"
 )
 
 func main() {
-	lox.Run(os.Args[1:])
+	cmd.Run(os.Args[1:])
 }

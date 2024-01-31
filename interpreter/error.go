@@ -2,7 +2,7 @@ package interpreter
 
 import (
 	"fmt"
-	"glox/lox/scanner"
+	"glox/scanner"
 )
 
 type Error struct {

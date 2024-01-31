@@ -2,7 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"glox/lox/scanner"
+	"glox/scanner"
 )
 
 /*
@@ -74,14 +74,14 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 		right, err := nonTerminal()
 
 		if err != nil {
-			return Error{}, err
+			return NilExpr{}, err
 		}
 
-		expr = Binary{Left: expr, Operator: token, Right: right}
+		expr = BinaryExpr{Left: expr, Operator: token, Right: right}
 	}
 
 	if err != nil {
-		return Error{}, err
+		return NilExpr{}, err
 	}
 
 	return expr, nil
@@ -89,7 +89,7 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 
 func (p *Parser) error(token scanner.Token, message string) error {
 	if token.Type == scanner.EOF {
-		return &Error{Line: token.Line, Where: " at end", Message: message}
+		return &Error{Line: token.Line, Where: " at the end", Message: message}
 	}
 	return &Error{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
 }
@@ -104,7 +104,7 @@ func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
 func (p *Parser) ternary() (Expr, error) {
 	condition, err := p.expression()
 	if err != nil {
-		return Error{}, err
+		return NilExpr{}, err
 	}
 
 	if !p.match(scanner.QUESTION) {
@@ -113,33 +113,33 @@ func (p *Parser) ternary() (Expr, error) {
 
 	left, err := p.ternary()
 	if err != nil {
-		return Error{}, err
+		return NilExpr{}, err
 	}
 
 	if p.match(scanner.COLON) {
 		right, err := p.ternary()
 		if err != nil {
-			return Error{}, err
+			return NilExpr{}, err
 		}
 
 		return TernaryExpr{Condition: condition, Left: left, Right: right}, nil
 	}
 
-	return Error{}, p.error(p.peek(), "Expected ':' after '?'.")
+	return NilExpr{}, p.error(p.peek(), "Expected ':' after '?'.")
 }
 
 func (p *Parser) expression() (Expr, error) {
 	expr, err := p.equality()
 
 	if err != nil {
-		return Error{}, err
+		return NilExpr{}, err
 	}
 
 	for p.match(scanner.COMMA) {
 		expr, err = p.equality()
 
 		if err != nil {
-			return Error{}, err
+			return NilExpr{}, err
 		}
 	}
 
@@ -170,7 +170,7 @@ func (p *Parser) unary() (Expr, error) {
 	right, err := p.unary()
 
 	if err != nil {
-		return Error{}, err
+		return NilExpr{}, err
 	}
 
 	return UnaryExpr{Operator: token, Right: right}, nil
@@ -197,15 +197,15 @@ func (p *Parser) primary() (Expr, error) {
 		expr, err := p.expression()
 
 		if err != nil {
-			return Error{}, err
+			return NilExpr{}, err
 		}
 
 		if err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
-			return Error{}, err
+			return NilExpr{}, err
 		}
 
 		return GroupingExpr{Expr: expr}, nil
 	}
 
-	return Error{}, p.error(p.peek(), "Expected an expression.")
+	return NilExpr{}, p.error(p.peek(), "Expected an expression.")
 }

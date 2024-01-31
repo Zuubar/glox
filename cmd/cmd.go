@@ -1,40 +1,48 @@
-package lox
+package cmd
 
 import (
 	"bufio"
 	"fmt"
-	"glox/lox/interpreter"
-	"glox/lox/parser"
-	"glox/lox/scanner"
+	"glox/interpreter"
+	"glox/parser"
+	"glox/scanner"
 	"os"
 )
+
+func printError(err error) {
+	fmt.Print("\033[31m" + err.Error() + "\033[0m")
+}
+
+func printDebug(message string) {
+	fmt.Print("\033[33m" + message + "\033[0m")
+}
 
 func run(source string) {
 	scnr := scanner.New(source)
 	tokens, err := scnr.Run()
 
 	if err != nil {
-		fmt.Print(err.Error())
+		printError(err)
 		return
 	}
-	fmt.Printf("Scanner: %v\n", tokens)
+	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
 	prsr := parser.New(tokens)
 	ast, err := prsr.Run()
 
 	if err != nil {
-		fmt.Print(err.Error())
+		printError(err)
 		return
 	}
-	fmt.Printf("AST: %v\n", parser.AstPrinter{}.Print(ast))
+	printDebug(fmt.Sprintf("AST: %v\n", parser.AstPrinter{}.Print(ast)))
 
 	inter := interpreter.New(ast)
 	result, err := inter.Run()
 	if err != nil {
-		fmt.Print(err.Error())
+		printError(err)
 		return
 	}
-	fmt.Printf("Interpreted: %v\n", result)
+	fmt.Printf("Result: %v\n", result)
 }
 
 func runFile(filePath string) {
