@@ -1,17 +1,18 @@
 package interpreter
 
 import (
+	"fmt"
 	"glox/parser"
 	"glox/scanner"
 	"reflect"
 )
 
 type Interpreter struct {
-	Expression parser.Expr
+	environment *environment
 }
 
-func New(expression parser.Expr) Interpreter {
-	return Interpreter{Expression: expression}
+func New() *Interpreter {
+	return &Interpreter{environment: newEnvironment()}
 }
 
 func (i *Interpreter) isTruthy(object any) bool {
@@ -27,7 +28,7 @@ func (i *Interpreter) isTruthy(object any) bool {
 }
 
 func (i *Interpreter) isType(object any, targetType reflect.Kind) bool {
-	return reflect.TypeOf(object).Kind() == targetType
+	return object != nil && reflect.TypeOf(object).Kind() == targetType
 }
 
 func (i *Interpreter) areNumberedOperands(object1 any, object2 any) bool {
@@ -68,7 +69,7 @@ func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) any {
 		}
 	}
 
-	return Error{Token: token, Message: "Operand must be a number."}
+	return RuntimeError{Token: token, Message: "Operand must be a number."}
 }
 
 func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) any {
@@ -83,49 +84,49 @@ func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) any {
 		if i.areStringOperands(object1, object2) {
 			return object1.(string) + object2.(string)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers or strings."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers or strings."}
 	case scanner.MINUS:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) - object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.STAR:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) * object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.SLASH:
 		if i.areNumberedOperands(object1, object2) {
 			left, _ := object1.(float64)
 			right, _ := object2.(float64)
 
 			if right == 0 {
-				return Error{Token: token, Message: "Division by zero is prohibited."}
+				return RuntimeError{Token: token, Message: "Division by zero is prohibited."}
 			}
 
 			return left / right
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.GREATER:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) > object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.GREATER_EQUAL:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) >= object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.LESS:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) < object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.LESS_EQUAL:
 		if i.areNumberedOperands(object1, object2) {
 			return object1.(float64) < object2.(float64)
 		}
-		return Error{Token: token, Message: "Both operands should be numbers."}
+		return RuntimeError{Token: token, Message: "Both operands should be numbers."}
 	case scanner.EQUAL_EQUAL:
 		return i.areEqual(object1, object2)
 	case scanner.BANG_EQUAL:
@@ -144,10 +145,51 @@ func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) any {
 	return ternary.Right.Accept(i)
 }
 
-func (i *Interpreter) Run() (any, error) {
-	result := i.Expression.Accept(i)
-	if err, ok := result.(Error); ok {
-		return nil, &err
+func (i *Interpreter) VisitVariableExpr(v parser.VariableExpr) any {
+	value, ok := i.environment.lookup(v.Name.Lexeme)
+	if !ok {
+		return RuntimeError{Token: v.Name, Message: fmt.Sprintf("Undefined variable '%s'.", v.Name.Lexeme)}
 	}
-	return result, nil
+	return value
+}
+
+func (i *Interpreter) VisitExpressionStmt(e parser.ExpressionStmt) any {
+	result := e.Expression.Accept(i)
+	if err, ok := result.(RuntimeError); ok {
+		return err
+	}
+	return nil
+}
+
+func (i *Interpreter) VisitPrintStmt(p parser.PrintStmt) any {
+	result := p.Expression.Accept(i)
+	if err, ok := result.(RuntimeError); ok {
+		return err
+	}
+	fmt.Println(result)
+	return nil
+}
+
+func (i *Interpreter) VisitVarStmt(v parser.VarStmt) any {
+	var value any = nil
+
+	if v.Initializer != nil {
+		value = v.Initializer.Accept(i)
+		if err, ok := value.(RuntimeError); ok {
+			return err
+		}
+	}
+
+	i.environment.define(v.Name.Lexeme, value)
+	return nil
+}
+
+func (i *Interpreter) Interpret(statements []parser.Stmt) error {
+	for _, stmt := range statements {
+		result := stmt.Accept(i)
+		if err, ok := result.(RuntimeError); ok {
+			return &err
+		}
+	}
+	return nil
 }

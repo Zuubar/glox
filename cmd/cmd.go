@@ -9,6 +9,8 @@ import (
 	"os"
 )
 
+var inter *interpreter.Interpreter
+
 func printError(err error) {
 	fmt.Print("\033[31m" + err.Error() + "\033[0m")
 }
@@ -28,21 +30,19 @@ func run(source string) {
 	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
 	prsr := parser.New(tokens)
-	ast, err := prsr.Run()
+	statements, err := prsr.Parse()
 
 	if err != nil {
 		printError(err)
 		return
 	}
-	printDebug(fmt.Sprintf("AST: %v\n", parser.AstPrinter{}.Print(ast)))
+	//printer := parser.AstPrinter{}
+	//printDebug(fmt.Sprintf("AST: %v\n", printer.Print(statements)))
 
-	inter := interpreter.New(ast)
-	result, err := inter.Run()
-	if err != nil {
+	if err := inter.Interpret(statements); err != nil {
 		printError(err)
 		return
 	}
-	fmt.Printf("Result: %v\n", result)
 }
 
 func runFile(filePath string) {
@@ -71,6 +71,7 @@ func repl() {
 }
 
 func Run(args []string) {
+	inter = interpreter.New()
 	if len(args) == 0 {
 		repl()
 	} else if len(args) == 1 {

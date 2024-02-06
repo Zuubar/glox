@@ -7,14 +7,21 @@ import (
 
 /*
 Grammar:
-	ternary -> expression "?" ternary ":" ternary
-	expression -> equality ("," equality)*;
-	equality -> comparison ( ( "!=" | "==" ) comparison)*
-	comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term)*;
-	term -> factor ( ( "+" | "-" ) factor)*;
-	factor -> unary ( ( "*" | "/" ) unary)*;
-	unary -> ( "!" | "-" ) unary | primary;
-	primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")";
+	program -> declaration* EOF
+	declaration -> varDecl | statement ;
+	varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
+	statement -> expressionStmt | printStmt ;
+	expressionStmt -> expression ";" ;
+	printStmt -> "print" expression ";" ;
+
+	expression -> ternary ("," ternary)* ;
+	ternary -> equality "?" ternary ":" ternary | equality ;
+	equality -> comparison ( ( "!=" | "==" ) comparison)* ;
+	comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term)* ;
+	term -> factor ( ( "+" | "-" ) factor)* ;
+	factor -> unary ( ( "*" | "/" ) unary)* ;
+	unary -> ( "!" | "-" ) unary | primary ;
+	primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 */
 
 type Parser struct {
@@ -22,12 +29,20 @@ type Parser struct {
 	current int32
 }
 
-func New(tokens []scanner.Token) Parser {
-	return Parser{tokens: tokens}
+func New(tokens []scanner.Token) *Parser {
+	return &Parser{tokens: tokens}
 }
 
-func (p *Parser) Run() (Expr, error) {
-	return p.ternary()
+func (p *Parser) Parse() ([]Stmt, error) {
+	statements := make([]Stmt, 0, 10)
+	for !p.isAtEnd() {
+		stmt, err := p.declaration()
+		if err != nil {
+			return statements, err
+		}
+		statements = append(statements, stmt)
+	}
+	return statements, nil
 }
 
 func (p *Parser) isAtEnd() bool {
@@ -74,37 +89,118 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 		right, err := nonTerminal()
 
 		if err != nil {
-			return NilExpr{}, err
+			return nil, err
 		}
 
 		expr = BinaryExpr{Left: expr, Operator: token, Right: right}
 	}
 
 	if err != nil {
-		return NilExpr{}, err
+		return nil, err
 	}
 
 	return expr, nil
 }
 
-func (p *Parser) error(token scanner.Token, message string) error {
+func (p *Parser) generateError(token scanner.Token, message string) error {
 	if token.Type == scanner.EOF {
-		return &Error{Line: token.Line, Where: " at the end", Message: message}
+		return &CompileTimeError{Line: token.Line, Where: " at the end", Message: message}
 	}
-	return &Error{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
+	return &CompileTimeError{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
 }
 
 func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
 	if !p.match(tokenType) {
-		return p.error(p.peekBehind(), errorMsg)
+		return p.generateError(p.peek(), errorMsg)
 	}
 	return nil
 }
 
-func (p *Parser) ternary() (Expr, error) {
-	condition, err := p.expression()
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match(scanner.VAR) {
+		return p.varDeclaration()
+	}
+	return p.statement()
+}
+
+func (p *Parser) varDeclaration() (Stmt, error) {
+	if err := p.consume(scanner.IDENTIFIER, "Expected identifier after 'var'."); err != nil {
+		return nil, err
+	}
+	varDecl := VarStmt{Name: p.peekBehind(), Initializer: nil}
+
+	if p.match(scanner.EQUAL) {
+		expr, err := p.expression()
+		if err != nil {
+			return nil, err
+		}
+		varDecl.Initializer = expr
+	}
+
+	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a variable declaration."); err != nil {
+		return nil, err
+	}
+	return varDecl, nil
+}
+
+func (p *Parser) statement() (Stmt, error) {
+	if p.match(scanner.PRINT) {
+		return p.printStatement()
+	}
+
+	return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (Stmt, error) {
+	expr, err := p.expression()
+
 	if err != nil {
-		return NilExpr{}, err
+		return nil, err
+	}
+
+	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+		return nil, err
+	}
+
+	return PrintStmt{Expression: expr}, nil
+}
+
+func (p *Parser) expressionStatement() (Stmt, error) {
+	expr, err := p.expression()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+		return nil, err
+	}
+
+	return ExpressionStmt{Expression: expr}, nil
+}
+
+func (p *Parser) expression() (Expr, error) {
+	expr, err := p.ternary()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(scanner.COMMA) {
+		expr, err = p.ternary()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return expr, nil
+}
+
+func (p *Parser) ternary() (Expr, error) {
+	condition, err := p.equality()
+	if err != nil {
+		return nil, err
 	}
 
 	if !p.match(scanner.QUESTION) {
@@ -113,37 +209,19 @@ func (p *Parser) ternary() (Expr, error) {
 
 	left, err := p.ternary()
 	if err != nil {
-		return NilExpr{}, err
+		return nil, err
 	}
 
-	if p.match(scanner.COLON) {
-		right, err := p.ternary()
-		if err != nil {
-			return NilExpr{}, err
-		}
-
-		return TernaryExpr{Condition: condition, Left: left, Right: right}, nil
+	if err := p.consume(scanner.COLON, "Expected ':' after '?'."); err != nil {
+		return nil, err
 	}
 
-	return NilExpr{}, p.error(p.peek(), "Expected ':' after '?'.")
-}
-
-func (p *Parser) expression() (Expr, error) {
-	expr, err := p.equality()
-
+	right, err := p.ternary()
 	if err != nil {
-		return NilExpr{}, err
+		return nil, err
 	}
 
-	for p.match(scanner.COMMA) {
-		expr, err = p.equality()
-
-		if err != nil {
-			return NilExpr{}, err
-		}
-	}
-
-	return expr, nil
+	return TernaryExpr{Condition: condition, Left: left, Right: right}, nil
 }
 
 func (p *Parser) equality() (Expr, error) {
@@ -170,7 +248,7 @@ func (p *Parser) unary() (Expr, error) {
 	right, err := p.unary()
 
 	if err != nil {
-		return NilExpr{}, err
+		return nil, err
 	}
 
 	return UnaryExpr{Operator: token, Right: right}, nil
@@ -193,19 +271,23 @@ func (p *Parser) primary() (Expr, error) {
 		return LiteralExpr{Value: p.peekBehind().Literal}, nil
 	}
 
+	if p.match(scanner.IDENTIFIER) {
+		return VariableExpr{Name: p.peekBehind()}, nil
+	}
+
 	if p.match(scanner.LEFT_PAREN) {
 		expr, err := p.expression()
 
 		if err != nil {
-			return NilExpr{}, err
+			return nil, err
 		}
 
 		if err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
-			return NilExpr{}, err
+			return nil, err
 		}
 
 		return GroupingExpr{Expr: expr}, nil
 	}
 
-	return NilExpr{}, p.error(p.peek(), "Expected an expression.")
+	return nil, p.generateError(p.peek(), "Expected an expression.")
 }

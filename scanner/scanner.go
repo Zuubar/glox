@@ -31,8 +31,8 @@ type Scanner struct {
 	line    int32
 }
 
-func New(source string) Scanner {
-	return Scanner{source: source, tokens: make([]Token, 0, 100)}
+func New(source string) *Scanner {
+	return &Scanner{source: source, tokens: make([]Token, 0, 100)}
 }
 
 func (s *Scanner) isAtEnd() bool {

@@ -5,11 +5,11 @@ import (
 	"glox/scanner"
 )
 
-type Error struct {
+type RuntimeError struct {
 	Token   scanner.Token
 	Message string
 }
 
-func (e *Error) Error() string {
+func (e *RuntimeError) Error() string {
 	return fmt.Sprintf("%s \n[line %d]\n", e.Message, e.Token.Line)
 }

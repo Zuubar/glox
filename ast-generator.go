@@ -88,10 +88,12 @@ func main() {
 		"Grouping : Expr Expr",
 		"Literal  : Value any",
 		"Unary    : Operator Token, Right Expr",
+		"Variable : Name Token",
 	})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
+		"Var 		: Name Token, Initializer Expr",
 	})
 }
