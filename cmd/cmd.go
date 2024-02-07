@@ -11,8 +11,10 @@ import (
 
 var inter *interpreter.Interpreter
 
-func printError(err error) {
-	fmt.Print("\033[31m" + err.Error() + "\033[0m")
+func printErrors(errs ...error) {
+	for _, err := range errs {
+		fmt.Print("\033[31m" + err.Error() + "\033[0m")
+	}
 }
 
 func printDebug(message string) {
@@ -24,23 +26,23 @@ func run(source string) {
 	tokens, err := scnr.Run()
 
 	if err != nil {
-		printError(err)
-		return
+		printErrors(err)
 	}
 	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
 	prsr := parser.New(tokens)
-	statements, err := prsr.Parse()
+	ast, errs := prsr.Parse()
 
-	if err != nil {
-		printError(err)
+	if len(errs) != 0 {
+		printErrors(errs...)
 		return
 	}
-	//printer := parser.AstPrinter{}
-	//printDebug(fmt.Sprintf("AST: %v\n", printer.Print(statements)))
 
-	if err := inter.Interpret(statements); err != nil {
-		printError(err)
+	printer := parser.AstPrinter{}
+	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+
+	if err := inter.Interpret(ast); err != nil {
+		printErrors(err)
 		return
 	}
 }
@@ -75,7 +77,7 @@ func Run(args []string) {
 	if len(args) == 0 {
 		repl()
 	} else if len(args) == 1 {
-		runFile(args[1])
+		runFile(args[0])
 	} else {
 		fmt.Println("Usage: glox [script]")
 		os.Exit(64)

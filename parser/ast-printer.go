@@ -28,6 +28,10 @@ func (a *AstPrinter) VisitBinaryExpr(binary BinaryExpr) any {
 	return a.parenthesize(binary.Operator.Lexeme, binary.Left, binary.Right)
 }
 
+func (a *AstPrinter) VisitAssignmentExpr(assignment AssignmentExpr) any {
+	return a.parenthesize("assignment", assignment.Value)
+}
+
 func (a *AstPrinter) VisitTernaryExpr(ternary TernaryExpr) any {
 	return a.parenthesize("?:", ternary.Condition, ternary.Left, ternary.Right)
 }
@@ -53,7 +57,11 @@ func (a *AstPrinter) parenthesize(name string, exprs ...Expr) string {
 
 	builder.WriteString("(" + name)
 	for _, expr := range exprs {
-		builder.WriteString(" " + fmt.Sprintf("%v", expr.Accept(a)))
+		var value any = nil
+		if expr != nil {
+			value = expr.Accept(a)
+		}
+		builder.WriteString(" " + fmt.Sprintf("%v", value))
 	}
 	builder.WriteString(")")
 	return builder.String()

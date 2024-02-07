@@ -3,9 +3,9 @@ package parser
 import "glox/scanner"
 
 type VisitorStmt interface {
-	VisitExpressionStmt(e ExpressionStmt) any
-	VisitPrintStmt(p PrintStmt) any
-	VisitVarStmt(v VarStmt) any
+	VisitExpressionStmt(ExpressionStmt) any
+	VisitPrintStmt(PrintStmt) any
+	VisitVarStmt(VarStmt) any
 }
 
 type Stmt interface {

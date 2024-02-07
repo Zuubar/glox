@@ -15,7 +15,8 @@ Grammar:
 	printStmt -> "print" expression ";" ;
 
 	expression -> ternary ("," ternary)* ;
-	ternary -> equality "?" ternary ":" ternary | equality ;
+	ternary -> assignment "?" ternary ":" ternary | assignment ;
+	assignment -> IDENTIFIER "=" assignment | equality ;
 	equality -> comparison ( ( "!=" | "==" ) comparison)* ;
 	comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term)* ;
 	term -> factor ( ( "+" | "-" ) factor)* ;
@@ -33,16 +34,19 @@ func New(tokens []scanner.Token) *Parser {
 	return &Parser{tokens: tokens}
 }
 
-func (p *Parser) Parse() ([]Stmt, error) {
-	statements := make([]Stmt, 0, 10)
+func (p *Parser) Parse() ([]Stmt, []error) {
+	statements, errors := make([]Stmt, 0, 10), make([]error, 0, 10)
 	for !p.isAtEnd() {
 		stmt, err := p.declaration()
+
 		if err != nil {
-			return statements, err
+			p.synchronize()
+			errors = append(errors, err)
 		}
+
 		statements = append(statements, stmt)
 	}
-	return statements, nil
+	return statements, errors
 }
 
 func (p *Parser) isAtEnd() bool {
@@ -104,9 +108,9 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 
 func (p *Parser) generateError(token scanner.Token, message string) error {
 	if token.Type == scanner.EOF {
-		return &CompileTimeError{Line: token.Line, Where: " at the end", Message: message}
+		return &Error{Line: token.Line, Where: " at the end", Message: message}
 	}
-	return &CompileTimeError{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
+	return &Error{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
 }
 
 func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
@@ -114,6 +118,30 @@ func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
 		return p.generateError(p.peek(), errorMsg)
 	}
 	return nil
+}
+
+func (p *Parser) synchronize() {
+	p.advance()
+
+	for !p.isAtEnd() {
+		if p.peekBehind().Type == scanner.SEMICOLON {
+			return
+		}
+
+		switch p.peek().Type {
+		case scanner.CLASS:
+		case scanner.FUN:
+		case scanner.VAR:
+		case scanner.FOR:
+		case scanner.IF:
+		case scanner.WHILE:
+		case scanner.PRINT:
+		case scanner.RETURN:
+			return
+		}
+
+		p.advance()
+	}
 }
 
 func (p *Parser) declaration() (Stmt, error) {
@@ -198,7 +226,7 @@ func (p *Parser) expression() (Expr, error) {
 }
 
 func (p *Parser) ternary() (Expr, error) {
-	condition, err := p.equality()
+	condition, err := p.assignment()
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +250,27 @@ func (p *Parser) ternary() (Expr, error) {
 	}
 
 	return TernaryExpr{Condition: condition, Left: left, Right: right}, nil
+}
+
+func (p *Parser) assignment() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.match(scanner.EQUAL) {
+		equals := p.peekBehind()
+		value, err := p.assignment()
+		if err != nil {
+			return nil, err
+		}
+		if t, ok := expr.(VariableExpr); ok {
+			return AssignmentExpr{Name: t.Name, Value: value}, nil
+		}
+		return nil, p.generateError(equals, "Invalid assignment target.")
+	}
+
+	return expr, nil
 }
 
 func (p *Parser) equality() (Expr, error) {

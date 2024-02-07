@@ -3,12 +3,13 @@ package parser
 import "glox/scanner"
 
 type VisitorExpr interface {
-	VisitTernaryExpr(t TernaryExpr) any
-	VisitBinaryExpr(b BinaryExpr) any
-	VisitGroupingExpr(g GroupingExpr) any
-	VisitLiteralExpr(l LiteralExpr) any
-	VisitUnaryExpr(u UnaryExpr) any
-	VisitVariableExpr(v VariableExpr) any
+	VisitTernaryExpr(TernaryExpr) any
+	VisitAssignmentExpr(AssignmentExpr) any
+	VisitBinaryExpr(BinaryExpr) any
+	VisitGroupingExpr(GroupingExpr) any
+	VisitLiteralExpr(LiteralExpr) any
+	VisitUnaryExpr(UnaryExpr) any
+	VisitVariableExpr(VariableExpr) any
 }
 
 type Expr interface {
@@ -23,6 +24,15 @@ type TernaryExpr struct {
 
 func (t TernaryExpr) Accept(visitor VisitorExpr) any {
 	return visitor.VisitTernaryExpr(t)
+}
+
+type AssignmentExpr struct {
+	Name  scanner.Token
+	Value Expr
+}
+
+func (a AssignmentExpr) Accept(visitor VisitorExpr) any {
+	return visitor.VisitAssignmentExpr(a)
 }
 
 type BinaryExpr struct {

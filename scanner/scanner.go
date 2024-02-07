@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"errors"
 	"strconv"
 )
 
@@ -29,10 +30,11 @@ type Scanner struct {
 	start   int32
 	current int32
 	line    int32
+	err     error
 }
 
 func New(source string) *Scanner {
-	return &Scanner{source: source, tokens: make([]Token, 0, 100)}
+	return &Scanner{source: source, tokens: make([]Token, 0, 100), err: nil}
 }
 
 func (s *Scanner) isAtEnd() bool {
@@ -200,9 +202,7 @@ func (s *Scanner) Run() ([]Token, error) {
 					s.advance()
 				}
 			} else if s.match('*') {
-				if err := s.blockComment(); err != nil {
-					return nil, err
-				}
+				errors.As(s.blockComment(), &s.err)
 			} else {
 				s.addToken(SLASH, nil)
 			}
@@ -237,9 +237,7 @@ func (s *Scanner) Run() ([]Token, error) {
 				s.addToken(LESS, nil)
 			}
 		case '"':
-			if err := s.string(); err != nil {
-				return nil, err
-			}
+			errors.As(s.string(), &s.err)
 			break
 		case ' ':
 		case '\r':
@@ -254,12 +252,12 @@ func (s *Scanner) Run() ([]Token, error) {
 			} else if s.isAlpha(char) {
 				s.identifier()
 			} else {
-				return nil, &Error{Line: s.line, Message: "Unexpected character."}
+				s.err = &Error{Line: s.line, Message: "Unexpected character."}
 			}
 		}
 		s.start = s.current
 	}
 	s.addToken(EOF, nil)
 
-	return s.tokens, nil
+	return s.tokens, s.err
 }

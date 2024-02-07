@@ -1,0 +1,12 @@
+var a = "global a";
+var b = "global b";
+var c = "global c";
+
+print a;
+print b;
+print c;
+
+c = b = a;
+print a;
+print b;
+print c;
