@@ -8,7 +8,22 @@ import (
 type AstPrinter struct {
 }
 
-func (a AstPrinter) VisitLiteralExpr(literal LiteralExpr) any {
+func (a *AstPrinter) parenthesize(name string, exprs ...Expr) string {
+	var builder strings.Builder
+
+	builder.WriteString("(" + name)
+	for _, expr := range exprs {
+		var value any = nil
+		if expr != nil {
+			value = expr.Accept(a)
+		}
+		builder.WriteString(" " + fmt.Sprintf("%v", value))
+	}
+	builder.WriteString(")")
+	return builder.String()
+}
+
+func (a *AstPrinter) VisitLiteralExpr(literal LiteralExpr) any {
 	if literal.Value == nil {
 		return ""
 	}
@@ -16,33 +31,61 @@ func (a AstPrinter) VisitLiteralExpr(literal LiteralExpr) any {
 	return fmt.Sprintf("%v", literal.Value)
 }
 
-func (a AstPrinter) VisitGroupingExpr(grouping GroupingExpr) any {
+func (a *AstPrinter) VisitGroupingExpr(grouping GroupingExpr) any {
 	return a.parenthesize("group", grouping.Expr)
 }
 
-func (a AstPrinter) VisitUnaryExpr(unary UnaryExpr) any {
+func (a *AstPrinter) VisitUnaryExpr(unary UnaryExpr) any {
 	return a.parenthesize(unary.Operator.Lexeme, unary.Right)
 }
 
-func (a AstPrinter) VisitBinaryExpr(binary BinaryExpr) any {
+func (a *AstPrinter) VisitBinaryExpr(binary BinaryExpr) any {
 	return a.parenthesize(binary.Operator.Lexeme, binary.Left, binary.Right)
 }
 
-func (a AstPrinter) VisitTernaryExpr(ternary TernaryExpr) any {
-	return fmt.Sprintf("(?: %v %v %v)", ternary.Condition.Accept(a), ternary.Left.Accept(a), ternary.Right.Accept(a))
+func (a *AstPrinter) VisitAssignmentExpr(assignment AssignmentExpr) any {
+	return a.parenthesize("assignment", assignment.Value)
 }
 
-func (a AstPrinter) parenthesize(name string, exprs ...Expr) string {
+func (a *AstPrinter) VisitTernaryExpr(ternary TernaryExpr) any {
+	return a.parenthesize("?:", ternary.Condition, ternary.Left, ternary.Right)
+}
+
+func (a *AstPrinter) VisitVariableExpr(variableExpr VariableExpr) any {
+	return a.parenthesize("variableExpr " + variableExpr.Name.Lexeme)
+}
+
+func (a *AstPrinter) VisitExpressionStmt(expressionStmt ExpressionStmt) any {
+	return a.parenthesize("exprStmt", expressionStmt.Expression)
+}
+
+func (a *AstPrinter) VisitPrintStmt(printStmt PrintStmt) any {
+	return a.parenthesize("printStmt", printStmt.Expression)
+}
+
+func (a *AstPrinter) VisitVarStmt(varStmt VarStmt) any {
+	return a.parenthesize("varStmt "+varStmt.Name.Lexeme, varStmt.Initializer)
+}
+
+func (a *AstPrinter) VisitBlockStmt(stmt BlockStmt) any {
 	var builder strings.Builder
 
-	builder.WriteString("(" + name)
-	for _, expr := range exprs {
-		builder.WriteString(" " + fmt.Sprintf("%v", expr.Accept(a)))
+	builder.WriteString("[block ")
+	for i, declaration := range stmt.Declarations {
+		builder.WriteString(declaration.Accept(a).(string))
+		if !(i+1 >= len(stmt.Declarations)) {
+			builder.WriteString(" ")
+		}
 	}
-	builder.WriteString(")")
+	builder.WriteString("]")
+
 	return builder.String()
 }
 
-func (a AstPrinter) Print(expr Expr) any {
-	return expr.Accept(a)
+func (a *AstPrinter) Print(statements []Stmt) any {
+	results := make([]string, 0, 10)
+	for _, statement := range statements {
+		results = append(results, statement.Accept(a).(string))
+	}
+	return results
 }

@@ -7,63 +7,75 @@ import (
 	"glox/parser"
 	"glox/scanner"
 	"os"
+	"strings"
 )
 
-func printError(err error) {
-	fmt.Print("\033[31m" + err.Error() + "\033[0m")
+var inter *interpreter.Interpreter
+
+func printErrors(errs ...error) {
+	for _, err := range errs {
+		fmt.Print("\033[31m" + err.Error() + "\033[0m")
+	}
 }
 
 func printDebug(message string) {
 	fmt.Print("\033[33m" + message + "\033[0m")
 }
 
-func run(source string) {
+func run(source string) int {
 	scnr := scanner.New(source)
 	tokens, err := scnr.Run()
 
 	if err != nil {
-		printError(err)
-		return
+		printErrors(err)
 	}
 	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
 	prsr := parser.New(tokens)
-	ast, err := prsr.Run()
+	ast, errs := prsr.Parse()
 
-	if err != nil {
-		printError(err)
-		return
+	if len(errs) != 0 {
+		printErrors(errs...)
+		return 65
 	}
-	printDebug(fmt.Sprintf("AST: %v\n", parser.AstPrinter{}.Print(ast)))
 
-	inter := interpreter.New(ast)
-	result, err := inter.Run()
-	if err != nil {
-		printError(err)
-		return
+	printer := parser.AstPrinter{}
+	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+
+	if err := inter.Interpret(ast); err != nil {
+		printErrors(err)
+		return 70
 	}
-	fmt.Printf("Result: %v\n", result)
+
+	return 0
 }
 
 func runFile(filePath string) {
-	// Todo exit codes for compile-time and runtime errors
 	source, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
 	}
 
-	run(string(source))
+	exitCode := run(string(source))
+	os.Exit(exitCode)
 }
 
 func repl() {
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewScanner(os.Stdin)
 
 	for {
 		fmt.Print("> ")
-		line, err := reader.ReadString('\n')
+		if !reader.Scan() {
+			panic(reader.Err())
+		}
+		line := reader.Text()
 
-		if err != nil {
-			panic(err)
+		if len(line) == 0 {
+			continue
+		}
+
+		if !strings.Contains(line, ";") {
+			line = fmt.Sprintf("print (%s);", line)
 		}
 
 		run(line)
@@ -71,10 +83,11 @@ func repl() {
 }
 
 func Run(args []string) {
+	inter = interpreter.New()
 	if len(args) == 0 {
 		repl()
 	} else if len(args) == 1 {
-		runFile(args[1])
+		runFile(args[0])
 	} else {
 		fmt.Println("Usage: glox [script]")
 		os.Exit(64)

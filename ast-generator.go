@@ -24,7 +24,7 @@ func generateVisitor(file *os.File, baseName string, types []string) {
 		typeName := strings.TrimSpace(split[0])
 
 		fName := "Visit" + typeName + baseName
-		fArgs := fmt.Sprintf("%s %s", strings.ToLower(string(typeName[0])), typeName+baseName)
+		fArgs := fmt.Sprintf("%s", typeName+baseName)
 		writeStringLn(file, fmt.Sprintf("\t%s(%s) any", fName, fArgs))
 	}
 	writeStringLn(file, "}")
@@ -83,15 +83,19 @@ func main() {
 	outputDir := os.Args[1]
 
 	defineAst(outputDir, "Expr", []string{
-		"Ternary  : Condition Expr, Left Expr, Right Expr",
-		"Binary   : Left Expr, Operator Token, Right Expr",
-		"Grouping : Expr Expr",
-		"Literal  : Value any",
-		"Unary    : Operator Token, Right Expr",
+		"Ternary  	: Condition Expr, Left Expr, Right Expr",
+		"Assignment : Name Token, Value Expr",
+		"Binary   	: Left Expr, Operator Token, Right Expr",
+		"Grouping 	: Expr Expr",
+		"Literal  	: Value any",
+		"Unary    	: Operator Token, Right Expr",
+		"Variable 	: Name Token",
 	})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
+		"Var 		: Name Token, Initializer Expr",
+		"Block 		: Declarations []Stmt",
 	})
 }
