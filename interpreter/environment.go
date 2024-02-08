@@ -1,15 +1,25 @@
 package interpreter
 
 type environment struct {
-	values map[string]any
+	enclosing *environment
+	values    map[string]any
 }
 
-func newEnvironment() *environment {
-	return &environment{values: make(map[string]any)}
+func newEnvironment(enclosing *environment) *environment {
+	return &environment{values: make(map[string]any), enclosing: enclosing}
 }
 
-func (e *environment) lookup(name string) (any, bool) {
+func (e *environment) get(name string) (any, bool) {
 	value, ok := e.values[name]
+
+	if ok {
+		return value, ok
+	}
+
+	if e.enclosing != nil {
+		return e.enclosing.get(name)
+	}
+
 	return value, ok
 }
 

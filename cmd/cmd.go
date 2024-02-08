@@ -7,6 +7,7 @@ import (
 	"glox/parser"
 	"glox/scanner"
 	"os"
+	"strings"
 )
 
 var inter *interpreter.Interpreter
@@ -21,7 +22,7 @@ func printDebug(message string) {
 	fmt.Print("\033[33m" + message + "\033[0m")
 }
 
-func run(source string) {
+func run(source string) int {
 	scnr := scanner.New(source)
 	tokens, err := scnr.Run()
 
@@ -35,7 +36,7 @@ func run(source string) {
 
 	if len(errs) != 0 {
 		printErrors(errs...)
-		return
+		return 65
 	}
 
 	printer := parser.AstPrinter{}
@@ -43,29 +44,38 @@ func run(source string) {
 
 	if err := inter.Interpret(ast); err != nil {
 		printErrors(err)
-		return
+		return 70
 	}
+
+	return 0
 }
 
 func runFile(filePath string) {
-	// Todo exit codes for compile-time and runtime errors
 	source, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
 	}
 
-	run(string(source))
+	exitCode := run(string(source))
+	os.Exit(exitCode)
 }
 
 func repl() {
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewScanner(os.Stdin)
 
 	for {
 		fmt.Print("> ")
-		line, err := reader.ReadString('\n')
+		if !reader.Scan() {
+			panic(reader.Err())
+		}
+		line := reader.Text()
 
-		if err != nil {
-			panic(err)
+		if len(line) == 0 {
+			continue
+		}
+
+		if !strings.Contains(line, ";") {
+			line = fmt.Sprintf("print (%s);", line)
 		}
 
 		run(line)

@@ -96,5 +96,6 @@ func main() {
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
 		"Var 		: Name Token, Initializer Expr",
+		"Block 		: Declarations []Stmt",
 	})
 }

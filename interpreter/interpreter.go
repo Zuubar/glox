@@ -12,7 +12,7 @@ type Interpreter struct {
 }
 
 func New() *Interpreter {
-	return &Interpreter{environment: newEnvironment()}
+	return &Interpreter{environment: newEnvironment(nil)}
 }
 
 func (i *Interpreter) isTruthy(obj any) bool {
@@ -146,7 +146,7 @@ func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) any {
 
 func (i *Interpreter) VisitAssignmentExpr(assignment parser.AssignmentExpr) any {
 	token := assignment.Name
-	if _, ok := i.environment.lookup(token.Lexeme); !ok {
+	if _, ok := i.environment.get(token.Lexeme); !ok {
 		return Error{Token: token, Message: fmt.Sprintf("Undefined variable '%s'.", token.Lexeme)}
 	}
 
@@ -169,7 +169,7 @@ func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) any {
 }
 
 func (i *Interpreter) VisitVariableExpr(variableExpr parser.VariableExpr) any {
-	value, ok := i.environment.lookup(variableExpr.Name.Lexeme)
+	value, ok := i.environment.get(variableExpr.Name.Lexeme)
 	if !ok {
 		return Error{Token: variableExpr.Name, Message: fmt.Sprintf("Undefined variable '%s'.", variableExpr.Name.Lexeme)}
 	}
@@ -204,6 +204,20 @@ func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) any {
 	}
 
 	i.environment.define(varStmt.Name.Lexeme, value)
+	return nil
+}
+
+func (i *Interpreter) VisitBlockStmt(stmt parser.BlockStmt) any {
+	previous := i.environment
+	i.environment = newEnvironment(i.environment)
+	for _, declaration := range stmt.Declarations {
+		result := declaration.Accept(i)
+		if err, ok := result.(Error); ok {
+			i.environment = previous
+			return err
+		}
+	}
+	i.environment = previous
 	return nil
 }
 

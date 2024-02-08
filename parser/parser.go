@@ -8,7 +8,10 @@ import (
 /*
 Grammar:
 	program -> declaration* EOF
-	declaration -> varDecl | statement ;
+	declaration -> varDecl | statement | block ;
+
+	block -> "{" declaration* "}" ;
+
 	varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 	statement -> expressionStmt | printStmt ;
 	expressionStmt -> expression ";" ;
@@ -148,7 +151,29 @@ func (p *Parser) declaration() (Stmt, error) {
 	if p.match(scanner.VAR) {
 		return p.varDeclaration()
 	}
+
+	if p.match(scanner.LEFT_BRACE) {
+		return p.block()
+	}
+
 	return p.statement()
+}
+
+func (p *Parser) block() (Stmt, error) {
+	declarations := make([]Stmt, 0, 10)
+	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
+		declaration, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+		declarations = append(declarations, declaration)
+	}
+
+	if err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after a block."); err != nil {
+		return nil, err
+	}
+
+	return BlockStmt{Declarations: declarations}, nil
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {

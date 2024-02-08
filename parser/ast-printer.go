@@ -8,6 +8,21 @@ import (
 type AstPrinter struct {
 }
 
+func (a *AstPrinter) parenthesize(name string, exprs ...Expr) string {
+	var builder strings.Builder
+
+	builder.WriteString("(" + name)
+	for _, expr := range exprs {
+		var value any = nil
+		if expr != nil {
+			value = expr.Accept(a)
+		}
+		builder.WriteString(" " + fmt.Sprintf("%v", value))
+	}
+	builder.WriteString(")")
+	return builder.String()
+}
+
 func (a *AstPrinter) VisitLiteralExpr(literal LiteralExpr) any {
 	if literal.Value == nil {
 		return ""
@@ -52,18 +67,18 @@ func (a *AstPrinter) VisitVarStmt(varStmt VarStmt) any {
 	return a.parenthesize("varStmt "+varStmt.Name.Lexeme, varStmt.Initializer)
 }
 
-func (a *AstPrinter) parenthesize(name string, exprs ...Expr) string {
+func (a *AstPrinter) VisitBlockStmt(stmt BlockStmt) any {
 	var builder strings.Builder
 
-	builder.WriteString("(" + name)
-	for _, expr := range exprs {
-		var value any = nil
-		if expr != nil {
-			value = expr.Accept(a)
+	builder.WriteString("[block ")
+	for i, declaration := range stmt.Declarations {
+		builder.WriteString(declaration.Accept(a).(string))
+		if !(i+1 >= len(stmt.Declarations)) {
+			builder.WriteString(" ")
 		}
-		builder.WriteString(" " + fmt.Sprintf("%v", value))
 	}
-	builder.WriteString(")")
+	builder.WriteString("]")
+
 	return builder.String()
 }
 

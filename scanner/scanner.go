@@ -34,7 +34,7 @@ type Scanner struct {
 }
 
 func New(source string) *Scanner {
-	return &Scanner{source: source, tokens: make([]Token, 0, 100), err: nil}
+	return &Scanner{source: source, tokens: make([]Token, 0, 100), line: 1, err: nil}
 }
 
 func (s *Scanner) isAtEnd() bool {
