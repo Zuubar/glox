@@ -5,29 +5,6 @@ import (
 	"glox/scanner"
 )
 
-/*
-Grammar:
-	program -> declaration* EOF
-	declaration -> varDecl | statement | block ;
-
-	block -> "{" declaration* "}" ;
-
-	varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
-	statement -> expressionStmt | printStmt ;
-	expressionStmt -> expression ";" ;
-	printStmt -> "print" expression ";" ;
-
-	expression -> ternary ("," ternary)* ;
-	ternary -> assignment "?" ternary ":" ternary | assignment ;
-	assignment -> IDENTIFIER "=" assignment | equality ;
-	equality -> comparison ( ( "!=" | "==" ) comparison)* ;
-	comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term)* ;
-	term -> factor ( ( "+" | "-" ) factor)* ;
-	factor -> unary ( ( "*" | "/" ) unary)* ;
-	unary -> ( "!" | "-" ) unary | primary ;
-	primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
-*/
-
 type Parser struct {
 	tokens  []scanner.Token
 	current int32
@@ -88,8 +65,11 @@ func (p *Parser) match(types ...scanner.TokenType) bool {
 	return false
 }
 
-func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...scanner.TokenType) (Expr, error) {
+func (p *Parser) parseBinaryExpr(nonTerminal func() (Expr, error), types ...scanner.TokenType) (Expr, error) {
 	expr, err := nonTerminal()
+	if err != nil {
+		return nil, err
+	}
 
 	for p.match(types...) {
 		token := p.peekBehind()
@@ -102,8 +82,24 @@ func (p *Parser) parseBinaryExprLeft(nonTerminal func() (Expr, error), types ...
 		expr = BinaryExpr{Left: expr, Operator: token, Right: right}
 	}
 
+	return expr, nil
+}
+
+func (p *Parser) parseLogicalExpr(nonTerminal func() (Expr, error), types ...scanner.TokenType) (Expr, error) {
+	expr, err := nonTerminal()
 	if err != nil {
 		return nil, err
+	}
+
+	for p.match(types...) {
+		token := p.peekBehind()
+		right, err := nonTerminal()
+
+		if err != nil {
+			return nil, err
+		}
+
+		expr = LogicalExpr{Left: expr, Operator: token, Right: right}
 	}
 
 	return expr, nil
@@ -149,34 +145,13 @@ func (p *Parser) synchronize() {
 
 func (p *Parser) declaration() (Stmt, error) {
 	if p.match(scanner.VAR) {
-		return p.varDeclaration()
-	}
-
-	if p.match(scanner.LEFT_BRACE) {
-		return p.block()
+		return p.varDecl()
 	}
 
 	return p.statement()
 }
 
-func (p *Parser) block() (Stmt, error) {
-	declarations := make([]Stmt, 0, 10)
-	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
-		declaration, err := p.declaration()
-		if err != nil {
-			return nil, err
-		}
-		declarations = append(declarations, declaration)
-	}
-
-	if err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after a block."); err != nil {
-		return nil, err
-	}
-
-	return BlockStmt{Declarations: declarations}, nil
-}
-
-func (p *Parser) varDeclaration() (Stmt, error) {
+func (p *Parser) varDecl() (Stmt, error) {
 	if err := p.consume(scanner.IDENTIFIER, "Expected identifier after 'var'."); err != nil {
 		return nil, err
 	}
@@ -198,13 +173,33 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 
 func (p *Parser) statement() (Stmt, error) {
 	if p.match(scanner.PRINT) {
-		return p.printStatement()
+		return p.printStmt()
+	}
+	if p.match(scanner.LEFT_BRACE) {
+		return p.block()
+	}
+	if p.match(scanner.IF) {
+		return p.ifStmt()
 	}
 
-	return p.expressionStatement()
+	return p.expressionStmt()
 }
 
-func (p *Parser) printStatement() (Stmt, error) {
+func (p *Parser) expressionStmt() (Stmt, error) {
+	expr, err := p.expression()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+		return nil, err
+	}
+
+	return ExpressionStmt{Expression: expr}, nil
+}
+
+func (p *Parser) printStmt() (Stmt, error) {
 	expr, err := p.expression()
 
 	if err != nil {
@@ -218,18 +213,52 @@ func (p *Parser) printStatement() (Stmt, error) {
 	return PrintStmt{Expression: expr}, nil
 }
 
-func (p *Parser) expressionStatement() (Stmt, error) {
-	expr, err := p.expression()
+func (p *Parser) block() (Stmt, error) {
+	declarations := make([]Stmt, 0, 10)
+	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
+		declaration, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+		declarations = append(declarations, declaration)
+	}
 
+	if err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after a block."); err != nil {
+		return nil, err
+	}
+
+	return BlockStmt{Declarations: declarations}, nil
+}
+
+func (p *Parser) ifStmt() (Stmt, error) {
+	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'if'."); err != nil {
+		return nil, err
+	}
+
+	expr, err := p.expression()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+	if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'if'."); err != nil {
 		return nil, err
 	}
 
-	return ExpressionStmt{Expression: expr}, nil
+	thenBranch, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	var elseBranch Stmt = nil
+	if p.match(scanner.ELSE) {
+		elseBranch, err = p.statement()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return IfStmt{Expression: expr, ThenBranch: thenBranch, ElseBranch: elseBranch}, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
@@ -278,7 +307,7 @@ func (p *Parser) ternary() (Expr, error) {
 }
 
 func (p *Parser) assignment() (Expr, error) {
-	expr, err := p.equality()
+	expr, err := p.logicalOr()
 	if err != nil {
 		return nil, err
 	}
@@ -298,20 +327,28 @@ func (p *Parser) assignment() (Expr, error) {
 	return expr, nil
 }
 
+func (p *Parser) logicalOr() (Expr, error) {
+	return p.parseLogicalExpr(p.logicalAnd, scanner.OR)
+}
+
+func (p *Parser) logicalAnd() (Expr, error) {
+	return p.parseLogicalExpr(p.equality, scanner.AND)
+}
+
 func (p *Parser) equality() (Expr, error) {
-	return p.parseBinaryExprLeft(p.comparison, scanner.BANG_EQUAL, scanner.EQUAL_EQUAL)
+	return p.parseBinaryExpr(p.comparison, scanner.BANG_EQUAL, scanner.EQUAL_EQUAL)
 }
 
 func (p *Parser) comparison() (Expr, error) {
-	return p.parseBinaryExprLeft(p.term, scanner.GREATER, scanner.GREATER_EQUAL, scanner.LESS, scanner.LESS_EQUAL)
+	return p.parseBinaryExpr(p.term, scanner.GREATER, scanner.GREATER_EQUAL, scanner.LESS, scanner.LESS_EQUAL)
 }
 
 func (p *Parser) term() (Expr, error) {
-	return p.parseBinaryExprLeft(p.factor, scanner.PLUS, scanner.MINUS)
+	return p.parseBinaryExpr(p.factor, scanner.PLUS, scanner.MINUS)
 }
 
 func (p *Parser) factor() (Expr, error) {
-	return p.parseBinaryExprLeft(p.unary, scanner.STAR, scanner.SLASH)
+	return p.parseBinaryExpr(p.unary, scanner.STAR, scanner.SLASH)
 }
 
 func (p *Parser) unary() (Expr, error) {
