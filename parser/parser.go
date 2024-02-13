@@ -6,12 +6,13 @@ import (
 )
 
 type Parser struct {
-	tokens  []scanner.Token
-	current int32
+	tokens    []scanner.Token
+	current   int32
+	loopLevel int32
 }
 
 func New(tokens []scanner.Token) *Parser {
-	return &Parser{tokens: tokens}
+	return &Parser{tokens: tokens, loopLevel: 0}
 }
 
 func (p *Parser) Parse() ([]Stmt, []error) {
@@ -134,6 +135,7 @@ func (p *Parser) synchronize() {
 		case scanner.FOR:
 		case scanner.IF:
 		case scanner.WHILE:
+		case scanner.BREAK:
 		case scanner.PRINT:
 		case scanner.RETURN:
 			return
@@ -180,6 +182,24 @@ func (p *Parser) statement() (Stmt, error) {
 	}
 	if p.match(scanner.IF) {
 		return p.ifStmt()
+	}
+	if p.match(scanner.WHILE) {
+		p.loopLevel += 1
+		return p.whileStmt()
+	}
+	if p.match(scanner.FOR) {
+		p.loopLevel += 1
+		return p.forStmt()
+	}
+	if p.match(scanner.BREAK) {
+		at := p.peekBehind()
+		if p.loopLevel > 0 {
+			if err := p.consume(scanner.SEMICOLON, "Expected ';' after a 'break'."); err != nil {
+				return nil, err
+			}
+			return BreakStmt{At: at}, nil
+		}
+		return nil, p.generateError(p.peekBehind(), "Unexpected 'break' outside of while|for loop")
 	}
 
 	return p.expressionStmt()
@@ -261,6 +281,106 @@ func (p *Parser) ifStmt() (Stmt, error) {
 	return IfStmt{Expression: expr, ThenBranch: thenBranch, ElseBranch: elseBranch}, nil
 }
 
+func (p *Parser) whileStmt() (Stmt, error) {
+	defer func() { p.loopLevel -= 1 }()
+	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'while'."); err != nil {
+		return nil, err
+	}
+
+	expr, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'while'."); err != nil {
+		return nil, err
+	}
+
+	stmt, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	return WhileStmt{Condition: expr, Body: stmt}, nil
+}
+
+func (p *Parser) forStmt() (Stmt, error) {
+	defer func() { p.loopLevel -= 1 }()
+	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'for'."); err != nil {
+		return nil, err
+	}
+
+	var initializer Stmt
+	var err error = nil
+
+	if p.match(scanner.SEMICOLON) {
+		initializer = nil
+	} else if p.match(scanner.VAR) {
+		initializer, err = p.varDecl()
+	} else {
+		initializer, err = p.expressionStmt()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var condition Expr
+	err = nil
+
+	if p.match(scanner.SEMICOLON) {
+		condition = LiteralExpr{Value: true}
+	} else {
+		condition, err = p.expression()
+
+		if err := p.consume(scanner.SEMICOLON, "Expected ';' after condition."); err != nil {
+			return nil, err
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var increment Expr
+	err = nil
+
+	if p.match(scanner.RIGHT_PAREN) {
+		increment = nil
+	} else {
+		increment, err = p.expression()
+
+		if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'for'."); err != nil {
+			return nil, err
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	// Start of desugaring
+	whileBody := []Stmt{body}
+	if increment != nil {
+		whileBody = append(whileBody, ExpressionStmt{Expression: increment})
+	}
+
+	whileStmt := WhileStmt{Condition: condition, Body: BlockStmt{Declarations: whileBody}}
+
+	whileBlock := BlockStmt{Declarations: make([]Stmt, 0)}
+	if initializer != nil {
+		whileBlock.Declarations = append(whileBlock.Declarations, initializer)
+	}
+	whileBlock.Declarations = append(whileBlock.Declarations, whileStmt)
+
+	return whileBlock, nil
+}
+
 func (p *Parser) expression() (Expr, error) {
 	expr, err := p.ternary()
 
@@ -340,7 +460,11 @@ func (p *Parser) equality() (Expr, error) {
 }
 
 func (p *Parser) comparison() (Expr, error) {
-	return p.parseBinaryExpr(p.term, scanner.GREATER, scanner.GREATER_EQUAL, scanner.LESS, scanner.LESS_EQUAL)
+	return p.parseBinaryExpr(p.modulo, scanner.GREATER, scanner.GREATER_EQUAL, scanner.LESS, scanner.LESS_EQUAL)
+}
+
+func (p *Parser) modulo() (Expr, error) {
+	return p.parseBinaryExpr(p.term, scanner.MODULO)
 }
 
 func (p *Parser) term() (Expr, error) {

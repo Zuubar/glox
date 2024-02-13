@@ -11,3 +11,10 @@ type Error struct {
 func (e *Error) Error() string {
 	return fmt.Sprintf("[line %d] Error%s: %s\n", e.Line, e.Where, e.Message)
 }
+
+type BreakInterrupt struct {
+}
+
+func (e *BreakInterrupt) Error() string {
+	return "Break interrupt"
+}

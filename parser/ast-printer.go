@@ -94,6 +94,14 @@ func (a *AstPrinter) VisitIfStmt(stmt IfStmt) (any, error) {
 	return a.parenthesizeStmt("ifStmt", stmt.ThenBranch, stmt.ElseBranch), nil
 }
 
+func (a *AstPrinter) VisitWhileStmt(stmt WhileStmt) (any, error) {
+	return a.parenthesizeStmt("whileStmt", stmt.Body), nil
+}
+
+func (a *AstPrinter) VisitBreakStmt(stmt BreakStmt) (any, error) {
+	return a.parenthesizeStmt("breakStmt", nil), nil
+}
+
 func (a *AstPrinter) Print(statements []Stmt) any {
 	results := make([]string, 0, 10)
 	for _, statement := range statements {

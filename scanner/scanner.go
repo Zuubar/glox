@@ -22,6 +22,7 @@ var Keywords = map[string]TokenType{
 	"true":   TRUE,
 	"var":    VAR,
 	"while":  WHILE,
+	"break":  BREAK,
 }
 
 type Scanner struct {
@@ -195,6 +196,9 @@ func (s *Scanner) Run() ([]Token, error) {
 			break
 		case ':':
 			s.addToken(COLON, nil)
+			break
+		case '%':
+			s.addToken(MODULO, nil)
 			break
 		case '/':
 			if s.match('/') {

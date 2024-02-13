@@ -1,8 +1,30 @@
-var a = 17;
-var b = 23;
+var a = 0;
+var b = 1;
 
-if (a >= 17 and b < 20) {
-    print "foo";
-} else {
-    print "bar";
+var i = 1;
+while (true) {
+    if (i == 25) {
+        print "Finished for real";
+        break;
+    }
+
+    while (true) {
+        if (i > 20) {
+            print "Finished";
+            break;
+        }
+        print a;
+        var c = a + b;
+        a = b;
+        b = c;
+        i = i + 1;
+    }
+    i = i + 1;
+}
+
+for (var i = 1; i <= 1024; i = i * 2) {
+    if (i >= 512) {
+        break;
+    }
+    print i * 2;
 }

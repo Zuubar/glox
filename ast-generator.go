@@ -82,16 +82,16 @@ func main() {
 	}
 	outputDir := os.Args[1]
 
-	defineAst(outputDir, "Expr", []string{
-		"Ternary  	: Condition Expr, Left Expr, Right Expr",
-		"Assignment : Name Token, Value Expr",
-		"Logical	: Left Expr, Operator Token, Right Expr",
-		"Binary   	: Left Expr, Operator Token, Right Expr",
-		"Grouping 	: Expr Expr",
-		"Literal  	: Value any",
-		"Unary    	: Operator Token, Right Expr",
-		"Variable 	: Name Token",
-	})
+	//defineAst(outputDir, "Expr", []string{
+	//	"Ternary  	: Condition Expr, Left Expr, Right Expr",
+	//	"Assignment : Name Token, Value Expr",
+	//	"Logical	: Left Expr, Operator Token, Right Expr",
+	//	"Binary   	: Left Expr, Operator Token, Right Expr",
+	//	"Grouping 	: Expr Expr",
+	//	"Literal  	: Value any",
+	//	"Unary    	: Operator Token, Right Expr",
+	//	"Variable 	: Name Token",
+	//})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
@@ -99,5 +99,7 @@ func main() {
 		"Var 		: Name Token, Initializer Expr",
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
+		"While 		: Condition Expr, Body Stmt",
+		"Break 		: At Token",
 	})
 }

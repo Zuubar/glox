@@ -14,6 +14,7 @@ const (
 	SEMICOLON   TokenType = "SEMICOLON"
 	SLASH       TokenType = "SLASH"
 	STAR        TokenType = "STAR"
+	MODULO      TokenType = "MODULO"
 	// One or two character tokens.
 
 	BANG          TokenType = "BANG"
@@ -49,6 +50,7 @@ const (
 	TRUE   TokenType = "TRUE"
 	VAR    TokenType = "VAR"
 	WHILE  TokenType = "WHILE"
+	BREAK  TokenType = "BREAK"
 
 	EOF TokenType = "EOF"
 )

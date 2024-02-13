@@ -8,6 +8,8 @@ type VisitorStmt interface {
 	VisitVarStmt(VarStmt) (any, error)
 	VisitBlockStmt(BlockStmt) (any, error)
 	VisitIfStmt(IfStmt) (any, error)
+	VisitWhileStmt(WhileStmt) (any, error)
+	VisitBreakStmt(BreakStmt) (any, error)
 }
 
 type Stmt interface {
@@ -55,4 +57,21 @@ type IfStmt struct {
 
 func (i IfStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitIfStmt(i)
+}
+
+type WhileStmt struct {
+	Condition Expr
+	Body      Stmt
+}
+
+func (w WhileStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitWhileStmt(w)
+}
+
+type BreakStmt struct {
+	At scanner.Token
+}
+
+func (b BreakStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitBreakStmt(b)
 }
