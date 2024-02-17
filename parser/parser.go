@@ -191,15 +191,8 @@ func (p *Parser) statement() (Stmt, error) {
 		p.loopLevel += 1
 		return p.forStmt()
 	}
-	if p.match(scanner.BREAK) {
-		at := p.peekBehind()
-		if p.loopLevel > 0 {
-			if err := p.consume(scanner.SEMICOLON, "Expected ';' after a 'break'."); err != nil {
-				return nil, err
-			}
-			return BreakStmt{At: at}, nil
-		}
-		return nil, p.generateError(p.peekBehind(), "Unexpected 'break' outside of while|for loop")
+	if p.match(scanner.BREAK, scanner.CONTINUE) {
+		return p.interrupt()
 	}
 
 	return p.expressionStmt()
@@ -364,21 +357,38 @@ func (p *Parser) forStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	// Start of desugaring
-	whileBody := []Stmt{body}
-	if increment != nil {
-		whileBody = append(whileBody, ExpressionStmt{Expression: increment})
+	return BlockStmt{Declarations: []Stmt{ForStmt{Initializer: initializer, Condition: condition, Increment: ExpressionStmt{Expression: increment}, Body: body}}}, nil
+
+	// Desugar into a while.
+
+	//whileBody := []Stmt{body}
+	//if increment != nil {
+	//	whileBody = append(whileBody, ExpressionStmt{Expression: increment})
+	//}
+	//
+	//whileStmt := WhileStmt{Condition: condition, Body: BlockStmt{Declarations: whileBody}}
+	//
+	//whileBlock := BlockStmt{Declarations: make([]Stmt, 0)}
+	//if initializer != nil {
+	//	whileBlock.Declarations = append(whileBlock.Declarations, initializer)
+	//}
+	//whileBlock.Declarations = append(whileBlock.Declarations, whileStmt)
+	//
+	//return whileBlock, nil
+}
+
+func (p *Parser) interrupt() (Stmt, error) {
+	at := p.peekBehind()
+	if p.loopLevel > 0 {
+		if err := p.consume(scanner.SEMICOLON, fmt.Sprintf("Expected ';' after a '%s'.", at.Lexeme)); err != nil {
+			return nil, err
+		}
+		if at.Type == scanner.BREAK {
+			return BreakStmt{At: at}, nil
+		}
+		return ContinueStmt{At: at}, nil
 	}
-
-	whileStmt := WhileStmt{Condition: condition, Body: BlockStmt{Declarations: whileBody}}
-
-	whileBlock := BlockStmt{Declarations: make([]Stmt, 0)}
-	if initializer != nil {
-		whileBlock.Declarations = append(whileBlock.Declarations, initializer)
-	}
-	whileBlock.Declarations = append(whileBlock.Declarations, whileStmt)
-
-	return whileBlock, nil
+	return nil, p.generateError(p.peekBehind(), fmt.Sprintf("Unexpected '%s' outside of while|for loop", at.Lexeme))
 }
 
 func (p *Parser) expression() (Expr, error) {

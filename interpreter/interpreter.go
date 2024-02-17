@@ -299,22 +299,73 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 	}
 
 	for i.isTruthy(condition) {
-		_, err := i.execute(stmt.Body)
-
-		if err != nil {
+		if _, err := i.execute(stmt.Body); err != nil {
 			if errors.Is(err, &parser.BreakInterrupt{}) {
 				break
+			}
+			if errors.Is(err, &parser.ContinueInterrupt{}) {
+				continue
 			}
 			return nil, err
 		}
 
-		condition, err = i.evaluate(stmt.Condition)
+		condition, _ = i.evaluate(stmt.Condition)
 	}
 	return nil, nil
 }
 
-func (i *Interpreter) VisitBreakStmt(stmt parser.BreakStmt) (any, error) {
+func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
+	initializer := stmt.Initializer
+
+	if initializer != nil {
+		_, err := i.execute(initializer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	condition, err := i.evaluate(stmt.Condition)
+	if err != nil {
+		return nil, err
+	}
+
+	evaluateLoop := func() error {
+		condition, _ = i.evaluate(stmt.Condition)
+		if stmt.Increment != nil {
+			if _, err := i.execute(stmt.Increment); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	for i.isTruthy(condition) {
+		if _, err := i.execute(stmt.Body); err != nil {
+			if errors.Is(err, &parser.BreakInterrupt{}) {
+				break
+			}
+			if errors.Is(err, &parser.ContinueInterrupt{}) {
+				if err := evaluateLoop(); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			return nil, err
+		}
+
+		if err := evaluateLoop(); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (i *Interpreter) VisitBreakStmt(_ parser.BreakStmt) (any, error) {
 	return nil, &parser.BreakInterrupt{}
+}
+
+func (i *Interpreter) VisitContinueStmt(_ parser.ContinueStmt) (any, error) {
+	return nil, &parser.ContinueInterrupt{}
 }
 
 func (i *Interpreter) Interpret(statements []parser.Stmt) error {

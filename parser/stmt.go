@@ -9,7 +9,9 @@ type VisitorStmt interface {
 	VisitBlockStmt(BlockStmt) (any, error)
 	VisitIfStmt(IfStmt) (any, error)
 	VisitWhileStmt(WhileStmt) (any, error)
+	VisitForStmt(ForStmt) (any, error)
 	VisitBreakStmt(BreakStmt) (any, error)
+	VisitContinueStmt(ContinueStmt) (any, error)
 }
 
 type Stmt interface {
@@ -68,10 +70,29 @@ func (w WhileStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitWhileStmt(w)
 }
 
+type ForStmt struct {
+	Initializer Stmt
+	Condition   Expr
+	Increment   Stmt
+	Body        Stmt
+}
+
+func (f ForStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitForStmt(f)
+}
+
 type BreakStmt struct {
 	At scanner.Token
 }
 
 func (b BreakStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitBreakStmt(b)
+}
+
+type ContinueStmt struct {
+	At scanner.Token
+}
+
+func (c ContinueStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitContinueStmt(c)
 }

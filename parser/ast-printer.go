@@ -98,8 +98,16 @@ func (a *AstPrinter) VisitWhileStmt(stmt WhileStmt) (any, error) {
 	return a.parenthesizeStmt("whileStmt", stmt.Body), nil
 }
 
-func (a *AstPrinter) VisitBreakStmt(stmt BreakStmt) (any, error) {
+func (a *AstPrinter) VisitForStmt(stmt ForStmt) (any, error) {
+	return a.parenthesizeStmt("forStmt", stmt.Body), nil
+}
+
+func (a *AstPrinter) VisitBreakStmt(_ BreakStmt) (any, error) {
 	return a.parenthesizeStmt("breakStmt", nil), nil
+}
+
+func (a *AstPrinter) VisitContinueStmt(_ ContinueStmt) (any, error) {
+	return a.parenthesizeStmt("continueStmt", nil), nil
 }
 
 func (a *AstPrinter) Print(statements []Stmt) any {

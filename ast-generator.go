@@ -100,6 +100,8 @@ func main() {
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While 		: Condition Expr, Body Stmt",
+		"For 		: Initializer Stmt, Condition Expr, Increment Stmt, Body Stmt",
 		"Break 		: At Token",
+		"Continue 	: At Token",
 	})
 }

@@ -18,3 +18,10 @@ type BreakInterrupt struct {
 func (e *BreakInterrupt) Error() string {
 	return "Break interrupt"
 }
+
+type ContinueInterrupt struct {
+}
+
+func (e *ContinueInterrupt) Error() string {
+	return "Continue interrupt"
+}
