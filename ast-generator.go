@@ -25,7 +25,7 @@ func generateVisitor(file *os.File, baseName string, types []string) {
 
 		fName := "Visit" + typeName + baseName
 		fArgs := fmt.Sprintf("%s", typeName+baseName)
-		writeStringLn(file, fmt.Sprintf("\t%s(%s) any", fName, fArgs))
+		writeStringLn(file, fmt.Sprintf("\t%s(%s) (any, error)", fName, fArgs))
 	}
 	writeStringLn(file, "}")
 	writeStringLn(file, "")
@@ -34,7 +34,7 @@ func generateVisitor(file *os.File, baseName string, types []string) {
 func generateTypes(file *os.File, baseName string, types []string) {
 	visitorInterfaceName := "Visitor" + baseName
 	writeStringLn(file, fmt.Sprintf("type %s interface {", baseName))
-	writeStringLn(file, fmt.Sprintf("\tAccept(visitor %s) any", visitorInterfaceName))
+	writeStringLn(file, fmt.Sprintf("\tAccept(visitor %s) (any, error)", visitorInterfaceName))
 	writeStringLn(file, "}")
 	writeStringLn(file, "")
 
@@ -50,7 +50,7 @@ func generateTypes(file *os.File, baseName string, types []string) {
 		writeStringLn(file, "")
 
 		receiver := strings.ToLower(string(name[0]))
-		writeStringLn(file, fmt.Sprintf("func (%s %s) Accept(visitor %s) any {", receiver, name, visitorInterfaceName))
+		writeStringLn(file, fmt.Sprintf("func (%s %s) Accept(visitor %s) (any, error) {", receiver, name, visitorInterfaceName))
 		writeStringLn(file, fmt.Sprintf("\t return visitor.Visit%s(%s)", name, receiver))
 		writeStringLn(file, "}")
 		writeStringLn(file, "")
@@ -82,20 +82,26 @@ func main() {
 	}
 	outputDir := os.Args[1]
 
-	defineAst(outputDir, "Expr", []string{
-		"Ternary  	: Condition Expr, Left Expr, Right Expr",
-		"Assignment : Name Token, Value Expr",
-		"Binary   	: Left Expr, Operator Token, Right Expr",
-		"Grouping 	: Expr Expr",
-		"Literal  	: Value any",
-		"Unary    	: Operator Token, Right Expr",
-		"Variable 	: Name Token",
-	})
+	//defineAst(outputDir, "Expr", []string{
+	//	"Ternary  	: Condition Expr, Left Expr, Right Expr",
+	//	"Assignment : Name Token, Value Expr",
+	//	"Logical	: Left Expr, Operator Token, Right Expr",
+	//	"Binary   	: Left Expr, Operator Token, Right Expr",
+	//	"Grouping 	: Expr Expr",
+	//	"Literal  	: Value any",
+	//	"Unary    	: Operator Token, Right Expr",
+	//	"Variable 	: Name Token",
+	//})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
 		"Var 		: Name Token, Initializer Expr",
 		"Block 		: Declarations []Stmt",
+		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
+		"While 		: Condition Expr, Body Stmt",
+		"For 		: Initializer Stmt, Condition Expr, Increment Stmt, Body Stmt",
+		"Break 		: At Token",
+		"Continue 	: At Token",
 	})
 }
