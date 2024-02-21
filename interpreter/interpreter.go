@@ -10,11 +10,19 @@ import (
 )
 
 type Interpreter struct {
-	environment *environment
+	globalEnvironment *environment
+	environment       *environment
 }
 
 func New() *Interpreter {
-	return &Interpreter{environment: newEnvironment(nil)}
+	globalEnv := newEnvironment(nil)
+	env := newEnvironment(globalEnv)
+
+	globalEnv.define("time", &nativeTime{})
+	globalEnv.define("print", &nativePrint{})
+	globalEnv.define("println", &nativePrintLn{})
+
+	return &Interpreter{globalEnvironment: globalEnv, environment: env}
 }
 
 func (i *Interpreter) isTruthy(obj any) bool {
@@ -67,12 +75,57 @@ func (i *Interpreter) execute(stmt parser.Stmt) (any, error) {
 	return stmt.Accept(i)
 }
 
+func (i *Interpreter) executeBlock(statements []parser.Stmt, env *environment) (any, error) {
+	previous := i.environment
+
+	i.environment = env
+	for _, stmt := range statements {
+		if _, err := i.execute(stmt); err != nil {
+			i.environment = previous
+			return nil, err
+		}
+	}
+	i.environment = previous
+
+	return nil, nil
+
+}
+
 func (i *Interpreter) VisitLiteralExpr(literal parser.LiteralExpr) (any, error) {
 	return literal.Value, nil
 }
 
 func (i *Interpreter) VisitGroupingExpr(grouping parser.GroupingExpr) (any, error) {
 	return i.evaluate(grouping.Expr)
+}
+
+func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
+	callee, err := i.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+
+	fun, ok := callee.(Callable)
+
+	if !ok {
+		return nil, &Error{Token: expr.Parenthesis, Message: "Non callable object, can only call functions and classes."}
+	}
+
+	if fun.arity() != int32(len(expr.Arguments)) {
+		return nil, &Error{Token: expr.Parenthesis, Message: fmt.Sprintf("Expected %d arguments, but got %d.", fun.arity(), len(expr.Arguments))}
+	}
+
+	arguments := make([]any, 0)
+
+	for _, arg := range expr.Arguments {
+		value, err := i.evaluate(arg)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, value)
+	}
+
+	return fun.call(i, arguments)
 }
 
 func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) (any, error) {
@@ -160,7 +213,7 @@ func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) (any, error) {
 		return nil, &Error{Token: token, Message: "Both operands should be numbers."}
 	case scanner.LESS_EQUAL:
 		if i.areNumberedOperands(obj1, obj2) {
-			return obj1.(float64) < obj2.(float64), nil
+			return obj1.(float64) <= obj2.(float64), nil
 		}
 		return nil, &Error{Token: token, Message: "Both operands should be numbers."}
 	case scanner.EQUAL_EQUAL:
@@ -236,15 +289,6 @@ func (i *Interpreter) VisitExpressionStmt(expressionStmt parser.ExpressionStmt) 
 	return nil, nil
 }
 
-func (i *Interpreter) VisitPrintStmt(printStmt parser.PrintStmt) (any, error) {
-	result, err := i.evaluate(printStmt.Expression)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(i.stringify(result))
-	return nil, nil
-}
-
 func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) (any, error) {
 	var value any = nil
 	var err error = nil
@@ -261,15 +305,11 @@ func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitBlockStmt(stmt parser.BlockStmt) (any, error) {
-	previous := i.environment
-	i.environment = newEnvironment(i.environment)
-	for _, declaration := range stmt.Declarations {
-		if _, err := i.execute(declaration); err != nil {
-			i.environment = previous
-			return nil, err
-		}
-	}
-	i.environment = previous
+	return i.executeBlock(stmt.Declarations, newEnvironment(i.environment))
+}
+
+func (i *Interpreter) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
+	i.globalEnvironment.define(stmt.Name.Lexeme, newFunction(stmt))
 	return nil, nil
 }
 
@@ -330,12 +370,12 @@ func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
 	}
 
 	evaluateLoop := func() error {
-		condition, _ = i.evaluate(stmt.Condition)
 		if stmt.Increment != nil {
 			if _, err := i.execute(stmt.Increment); err != nil {
 				return err
 			}
 		}
+		condition, _ = i.evaluate(stmt.Condition)
 		return nil
 	}
 
@@ -366,6 +406,21 @@ func (i *Interpreter) VisitBreakStmt(_ parser.BreakStmt) (any, error) {
 
 func (i *Interpreter) VisitContinueStmt(_ parser.ContinueStmt) (any, error) {
 	return nil, &parser.ContinueInterrupt{}
+}
+
+func (i *Interpreter) VisitReturnStmt(stmt parser.ReturnStmt) (any, error) {
+	var value any = nil
+	var err error = nil
+
+	if stmt.Expr != nil {
+		value, err = i.evaluate(stmt.Expr)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, &parser.ReturnInterrupt{Value: value}
 }
 
 func (i *Interpreter) Interpret(statements []parser.Stmt) error {

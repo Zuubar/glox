@@ -90,18 +90,20 @@ func main() {
 	//	"Grouping 	: Expr Expr",
 	//	"Literal  	: Value any",
 	//	"Unary    	: Operator Token, Right Expr",
+	//	"Call 		: Callee Expr, Parenthesis Token, Arguments []Expr",
 	//	"Variable 	: Name Token",
 	//})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
-		"Print      : Expression Expr",
 		"Var 		: Name Token, Initializer Expr",
+		"Function 	: Name Token, Parameters []Token, Body []Stmt",
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While 		: Condition Expr, Body Stmt",
 		"For 		: Initializer Stmt, Condition Expr, Increment Stmt, Body Stmt",
-		"Break 		: At Token",
-		"Continue 	: At Token",
+		"Break 		: Keyword Token",
+		"Continue 	: Keyword Token",
+		"Return 	: Keyword Token, Expr Expr",
 	})
 }

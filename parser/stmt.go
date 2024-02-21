@@ -4,14 +4,15 @@ import "glox/scanner"
 
 type VisitorStmt interface {
 	VisitExpressionStmt(ExpressionStmt) (any, error)
-	VisitPrintStmt(PrintStmt) (any, error)
 	VisitVarStmt(VarStmt) (any, error)
+	VisitFunctionStmt(FunctionStmt) (any, error)
 	VisitBlockStmt(BlockStmt) (any, error)
 	VisitIfStmt(IfStmt) (any, error)
 	VisitWhileStmt(WhileStmt) (any, error)
 	VisitForStmt(ForStmt) (any, error)
 	VisitBreakStmt(BreakStmt) (any, error)
 	VisitContinueStmt(ContinueStmt) (any, error)
+	VisitReturnStmt(ReturnStmt) (any, error)
 }
 
 type Stmt interface {
@@ -26,14 +27,6 @@ func (e ExpressionStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitExpressionStmt(e)
 }
 
-type PrintStmt struct {
-	Expression Expr
-}
-
-func (p PrintStmt) Accept(visitor VisitorStmt) (any, error) {
-	return visitor.VisitPrintStmt(p)
-}
-
 type VarStmt struct {
 	Name        scanner.Token
 	Initializer Expr
@@ -41,6 +34,16 @@ type VarStmt struct {
 
 func (v VarStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitVarStmt(v)
+}
+
+type FunctionStmt struct {
+	Name       scanner.Token
+	Parameters []scanner.Token
+	Body       []Stmt
+}
+
+func (f FunctionStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitFunctionStmt(f)
 }
 
 type BlockStmt struct {
@@ -82,7 +85,7 @@ func (f ForStmt) Accept(visitor VisitorStmt) (any, error) {
 }
 
 type BreakStmt struct {
-	At scanner.Token
+	Keyword scanner.Token
 }
 
 func (b BreakStmt) Accept(visitor VisitorStmt) (any, error) {
@@ -90,9 +93,18 @@ func (b BreakStmt) Accept(visitor VisitorStmt) (any, error) {
 }
 
 type ContinueStmt struct {
-	At scanner.Token
+	Keyword scanner.Token
 }
 
 func (c ContinueStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitContinueStmt(c)
+}
+
+type ReturnStmt struct {
+	Keyword scanner.Token
+	Expr    Expr
+}
+
+func (r ReturnStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitReturnStmt(r)
 }

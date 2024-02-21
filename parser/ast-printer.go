@@ -50,6 +50,10 @@ func (a *AstPrinter) VisitGroupingExpr(grouping GroupingExpr) (any, error) {
 	return a.parenthesize("group", grouping.Expr), nil
 }
 
+func (a *AstPrinter) VisitCallExpr(expr CallExpr) (any, error) {
+	return a.parenthesize(a.parenthesize("callable", expr.Callee), expr.Arguments...), nil
+}
+
 func (a *AstPrinter) VisitUnaryExpr(unary UnaryExpr) (any, error) {
 	return a.parenthesize(unary.Operator.Lexeme, unary.Right), nil
 }
@@ -78,16 +82,16 @@ func (a *AstPrinter) VisitExpressionStmt(expressionStmt ExpressionStmt) (any, er
 	return a.parenthesize("exprStmt", expressionStmt.Expression), nil
 }
 
-func (a *AstPrinter) VisitPrintStmt(printStmt PrintStmt) (any, error) {
-	return a.parenthesize("printStmt", printStmt.Expression), nil
-}
-
 func (a *AstPrinter) VisitVarStmt(varStmt VarStmt) (any, error) {
 	return a.parenthesize("varStmt "+varStmt.Name.Lexeme, varStmt.Initializer), nil
 }
 
 func (a *AstPrinter) VisitBlockStmt(stmt BlockStmt) (any, error) {
 	return a.parenthesizeStmt("block", stmt.Declarations...), nil
+}
+
+func (a *AstPrinter) VisitFunctionStmt(stmt FunctionStmt) (any, error) {
+	return a.parenthesizeStmt("funDecl", stmt.Body...), nil
 }
 
 func (a *AstPrinter) VisitIfStmt(stmt IfStmt) (any, error) {
@@ -108,6 +112,10 @@ func (a *AstPrinter) VisitBreakStmt(_ BreakStmt) (any, error) {
 
 func (a *AstPrinter) VisitContinueStmt(_ ContinueStmt) (any, error) {
 	return a.parenthesizeStmt("continueStmt", nil), nil
+}
+
+func (a *AstPrinter) VisitReturnStmt(stmt ReturnStmt) (any, error) {
+	return a.parenthesize("returnStmt", stmt.Expr), nil
 }
 
 func (a *AstPrinter) Print(statements []Stmt) any {

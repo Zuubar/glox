@@ -75,7 +75,7 @@ func repl() {
 		}
 
 		if !strings.Contains(line, ";") {
-			line = fmt.Sprintf("print (%s);", line)
+			line = fmt.Sprintf("println(%s);", line)
 		}
 
 		run(line)

@@ -25,3 +25,11 @@ type ContinueInterrupt struct {
 func (e *ContinueInterrupt) Error() string {
 	return "Continue interrupt"
 }
+
+type ReturnInterrupt struct {
+	Value any
+}
+
+func (e *ReturnInterrupt) Error() string {
+	return fmt.Sprintf("Return interrupt: %d", e.Value)
+}
