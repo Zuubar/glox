@@ -4,6 +4,7 @@ import "glox/scanner"
 
 type VisitorStmt interface {
 	VisitExpressionStmt(ExpressionStmt) (any, error)
+	VisitPrintStmt(PrintStmt) (any, error)
 	VisitVarStmt(VarStmt) (any, error)
 	VisitFunctionStmt(FunctionStmt) (any, error)
 	VisitBlockStmt(BlockStmt) (any, error)
@@ -25,6 +26,14 @@ type ExpressionStmt struct {
 
 func (e ExpressionStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitExpressionStmt(e)
+}
+
+type PrintStmt struct {
+	Expression Expr
+}
+
+func (p PrintStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitPrintStmt(p)
 }
 
 type VarStmt struct {

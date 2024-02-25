@@ -1,53 +1,35 @@
 package interpreter
 
 import (
-	"fmt"
 	"time"
 )
 
-type nativeTime struct {
+type nativeClock struct {
 }
 
-func (n nativeTime) arity() int32 {
+func (n *nativeClock) arity() int32 {
 	return 0
 }
 
-func (n nativeTime) call(*Interpreter, []any) (any, error) {
+func (n *nativeClock) call(*Interpreter, []any) (any, error) {
 	return float64(time.Now().UnixMilli()) / 1000, nil
 }
 
-func (n nativeTime) String() string {
+func (n *nativeClock) String() string {
 	return "<native fn>"
 }
 
-type nativePrint struct {
+type nativeStringify struct {
 }
 
-func (n nativePrint) arity() int32 {
+func (n *nativeStringify) arity() int32 {
 	return 1
 }
 
-func (n nativePrint) call(i *Interpreter, args []any) (any, error) {
-	fmt.Print(i.stringify(args[0]))
-	return nil, nil
+func (n *nativeStringify) call(i *Interpreter, arguments []any) (any, error) {
+	return i.stringify(arguments[0]), nil
 }
 
-func (n nativePrint) String() string {
-	return "<native fn>"
-}
-
-type nativePrintLn struct {
-}
-
-func (n nativePrintLn) arity() int32 {
-	return 1
-}
-
-func (n nativePrintLn) call(i *Interpreter, args []any) (any, error) {
-	fmt.Println(i.stringify(args[0]))
-	return nil, nil
-}
-
-func (n nativePrintLn) String() string {
+func (n *nativeStringify) String() string {
 	return "<native fn>"
 }

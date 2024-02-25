@@ -43,6 +43,7 @@ const (
 	IF       TokenType = "IF"
 	NIL      TokenType = "NIL"
 	OR       TokenType = "OR"
+	PRINT    TokenType = "PRINT"
 	RETURN   TokenType = "RETURN"
 	SUPER    TokenType = "SUPER"
 	THIS     TokenType = "THIS"

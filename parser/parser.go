@@ -182,6 +182,9 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match(scanner.LEFT_BRACE) {
 		return p.block()
 	}
+	if p.match(scanner.PRINT) {
+		return p.printStmt()
+	}
 	if p.match(scanner.IF) {
 		return p.ifStmt()
 	}
@@ -256,6 +259,20 @@ func (p *Parser) expressionStmt() (Stmt, error) {
 	}
 
 	return ExpressionStmt{Expression: expr}, nil
+}
+
+func (p *Parser) printStmt() (Stmt, error) {
+	expr, err := p.expression()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+		return nil, err
+	}
+
+	return PrintStmt{Expression: expr}, nil
 }
 
 func (p *Parser) block() (Stmt, error) {
@@ -427,7 +444,7 @@ func (p *Parser) loopInterruptStmts() (Stmt, error) {
 func (p *Parser) returnStmt() (Stmt, error) {
 	keyword := p.peekBehind()
 	if p.funcLevel == 0 {
-		return nil, p.newError(keyword, fmt.Sprintf("'%s' unexpted outside of function", keyword.Lexeme))
+		return nil, p.newError(keyword, fmt.Sprintf("'%s' outside of function", keyword.Lexeme))
 	}
 
 	var expr Expr = nil
@@ -574,7 +591,7 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 }
 
 func (p *Parser) call() (Expr, error) {
-	expr, err := p.primary()
+	expr, err := p.lambda()
 
 	if err != nil {
 		return nil, err
@@ -587,6 +604,49 @@ func (p *Parser) call() (Expr, error) {
 	}
 
 	return expr, nil
+}
+
+func (p *Parser) lambda() (Expr, error) {
+	if !p.match(scanner.FUN) {
+		return p.primary()
+	}
+
+	p.funcLevel += 1
+	defer func() { p.funcLevel -= 1 }()
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
+		return nil, err
+	}
+
+	parameters := make([]scanner.Token, 0)
+	var parenthesisToken scanner.Token
+	var err error
+
+	if p.match(scanner.RIGHT_PAREN) {
+		parenthesisToken = p.peekBehind()
+	} else {
+		firstParam := p.advance()
+		parameters = append(parameters, firstParam)
+
+		for p.match(scanner.COMMA) {
+			parameters = append(parameters, p.advance())
+		}
+
+		parenthesisToken, err = p.consume(scanner.RIGHT_PAREN, "Expected ')' after anonymous function parameters.")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before anonymous function body."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {

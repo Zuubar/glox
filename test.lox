@@ -3,10 +3,21 @@ fun fib(n) {
   return fib(n - 2) + fib(n - 1);
 }
 
-var start = time();
-for (var i = 0; i < 25; i = i + 1) {
-  println(fib(i));
-}
-print("Time of execution: ");
-println(time() - start);
 
+fun adder() {
+    var i = 0;
+    return fun (x) {
+        i = i + x;
+        print i;
+    };
+}
+
+var pos = adder();
+var neg = adder();
+
+for (var i = 0; i < 5; i = i + 1) {
+    pos(1);
+    neg(-1);
+}
+
+print "fib 13: " + str(fib(13));

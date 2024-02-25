@@ -3,7 +3,7 @@ declaration -> varDecl | statement | functionDecl ;
 
 varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 
-statement -> expressionStmt | block | ifStmt | whileStmt | forStmt | breakStmt | continueStmt | returnStmt ;
+statement -> expressionStmt | printStmt | block | ifStmt | whileStmt | forStmt | breakStmt | continueStmt | returnStmt ;
 expressionStmt -> expression ";" ;
 block -> "{" declaration* "}" ;
 ifStmt -> "if" "(" expression ")" statement ( "else" statement )? ;
@@ -28,7 +28,8 @@ term -> factor ( ( "+" | "-" ) factor)* ;
 factor -> unary ( ( "*" | "/" ) unary)* ;
 unary -> ( "!" | "-" ) unary | call ;
 
-call -> primary ( "(" arguments? ")" )* ;
+call -> lambda ( "(" arguments? ")" )* ;
+lambda -> "fun" "(" parameters? ")" block | primary ;
 arguments -> expression ("," expression) ;
 
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
