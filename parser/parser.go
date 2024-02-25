@@ -9,10 +9,11 @@ type Parser struct {
 	tokens    []scanner.Token
 	current   int32
 	loopLevel int32
+	funcLevel int32
 }
 
 func New(tokens []scanner.Token) *Parser {
-	return &Parser{tokens: tokens, loopLevel: 0}
+	return &Parser{tokens: tokens, loopLevel: 0, funcLevel: 0}
 }
 
 func (p *Parser) Parse() ([]Stmt, []error) {
@@ -106,18 +107,18 @@ func (p *Parser) parseLogicalExpr(nonTerminal func() (Expr, error), types ...sca
 	return expr, nil
 }
 
-func (p *Parser) generateError(token scanner.Token, message string) error {
+func (p *Parser) newError(token scanner.Token, message string) error {
 	if token.Type == scanner.EOF {
 		return &Error{Line: token.Line, Where: " at the end", Message: message}
 	}
 	return &Error{Line: token.Line, Where: fmt.Sprintf(" at '%s'", token.Lexeme), Message: message}
 }
 
-func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) error {
+func (p *Parser) consume(tokenType scanner.TokenType, errorMsg string) (scanner.Token, error) {
 	if !p.match(tokenType) {
-		return p.generateError(p.peek(), errorMsg)
+		return scanner.Token{}, p.newError(p.peek(), errorMsg)
 	}
-	return nil
+	return p.peekBehind(), nil
 }
 
 func (p *Parser) synchronize() {
@@ -136,7 +137,7 @@ func (p *Parser) synchronize() {
 		case scanner.IF:
 		case scanner.WHILE:
 		case scanner.BREAK:
-		case scanner.PRINT:
+		case scanner.CONTINUE:
 		case scanner.RETURN:
 			return
 		}
@@ -149,15 +150,19 @@ func (p *Parser) declaration() (Stmt, error) {
 	if p.match(scanner.VAR) {
 		return p.varDecl()
 	}
+	if p.match(scanner.FUN) {
+		return p.functionDecl("function")
+	}
 
 	return p.statement()
 }
 
 func (p *Parser) varDecl() (Stmt, error) {
-	if err := p.consume(scanner.IDENTIFIER, "Expected identifier after 'var'."); err != nil {
+	name, err := p.consume(scanner.IDENTIFIER, "Expected identifier after 'var'.")
+	if err != nil {
 		return nil, err
 	}
-	varDecl := VarStmt{Name: p.peekBehind(), Initializer: nil}
+	varDecl := VarStmt{Name: name, Initializer: nil}
 
 	if p.match(scanner.EQUAL) {
 		expr, err := p.expression()
@@ -167,18 +172,18 @@ func (p *Parser) varDecl() (Stmt, error) {
 		varDecl.Initializer = expr
 	}
 
-	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a variable declaration."); err != nil {
+	if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after a variable declaration."); err != nil {
 		return nil, err
 	}
 	return varDecl, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
-	if p.match(scanner.PRINT) {
-		return p.printStmt()
-	}
 	if p.match(scanner.LEFT_BRACE) {
 		return p.block()
+	}
+	if p.match(scanner.PRINT) {
+		return p.printStmt()
 	}
 	if p.match(scanner.IF) {
 		return p.ifStmt()
@@ -192,10 +197,54 @@ func (p *Parser) statement() (Stmt, error) {
 		return p.forStmt()
 	}
 	if p.match(scanner.BREAK, scanner.CONTINUE) {
-		return p.interrupt()
+		return p.loopInterruptStmts()
+	}
+	if p.match(scanner.RETURN) {
+		return p.returnStmt()
 	}
 
 	return p.expressionStmt()
+}
+
+func (p *Parser) functionDecl(kind string) (Stmt, error) {
+	p.funcLevel += 1
+	defer func() { p.funcLevel -= 1 }()
+	name, err := p.consume(scanner.IDENTIFIER, fmt.Sprintf("Expteced %s name.", kind))
+	if err != nil {
+		return nil, err
+	}
+	parameters := make([]scanner.Token, 0)
+
+	if _, err := p.consume(scanner.LEFT_PAREN, fmt.Sprintf("Expteced '(' after %s name.", kind)); err != nil {
+		return nil, err
+	}
+
+	if !p.check(scanner.RIGHT_PAREN) {
+		parameters = append(parameters, p.advance())
+
+		for p.match(scanner.COMMA) {
+			if len(parameters) >= 255 {
+				return nil, p.newError(p.peek(), "Can't have more than 255 parameters.")
+			}
+
+			parameters = append(parameters, p.advance())
+		}
+	}
+
+	if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' after parameters."); err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, fmt.Sprintf("Expected '{' before %s body.", kind)); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return FunctionStmt{Name: name, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
 func (p *Parser) expressionStmt() (Stmt, error) {
@@ -205,7 +254,7 @@ func (p *Parser) expressionStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+	if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
 		return nil, err
 	}
 
@@ -219,7 +268,7 @@ func (p *Parser) printStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
+	if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after a value."); err != nil {
 		return nil, err
 	}
 
@@ -236,7 +285,7 @@ func (p *Parser) block() (Stmt, error) {
 		declarations = append(declarations, declaration)
 	}
 
-	if err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after a block."); err != nil {
+	if _, err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after a block."); err != nil {
 		return nil, err
 	}
 
@@ -244,7 +293,7 @@ func (p *Parser) block() (Stmt, error) {
 }
 
 func (p *Parser) ifStmt() (Stmt, error) {
-	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'if'."); err != nil {
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'if'."); err != nil {
 		return nil, err
 	}
 
@@ -253,7 +302,7 @@ func (p *Parser) ifStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'if'."); err != nil {
+	if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'if'."); err != nil {
 		return nil, err
 	}
 
@@ -276,7 +325,7 @@ func (p *Parser) ifStmt() (Stmt, error) {
 
 func (p *Parser) whileStmt() (Stmt, error) {
 	defer func() { p.loopLevel -= 1 }()
-	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'while'."); err != nil {
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'while'."); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +334,7 @@ func (p *Parser) whileStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'while'."); err != nil {
+	if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'while'."); err != nil {
 		return nil, err
 	}
 
@@ -299,7 +348,7 @@ func (p *Parser) whileStmt() (Stmt, error) {
 
 func (p *Parser) forStmt() (Stmt, error) {
 	defer func() { p.loopLevel -= 1 }()
-	if err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'for'."); err != nil {
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'for'."); err != nil {
 		return nil, err
 	}
 
@@ -326,7 +375,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 	} else {
 		condition, err = p.expression()
 
-		if err := p.consume(scanner.SEMICOLON, "Expected ';' after condition."); err != nil {
+		if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after condition."); err != nil {
 			return nil, err
 		}
 	}
@@ -343,7 +392,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 	} else {
 		increment, err = p.expression()
 
-		if err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'for'."); err != nil {
+		if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'for'."); err != nil {
 			return nil, err
 		}
 	}
@@ -377,36 +426,44 @@ func (p *Parser) forStmt() (Stmt, error) {
 	//return whileBlock, nil
 }
 
-func (p *Parser) interrupt() (Stmt, error) {
-	at := p.peekBehind()
-	if p.loopLevel > 0 {
-		if err := p.consume(scanner.SEMICOLON, fmt.Sprintf("Expected ';' after a '%s'.", at.Lexeme)); err != nil {
-			return nil, err
-		}
-		if at.Type == scanner.BREAK {
-			return BreakStmt{At: at}, nil
-		}
-		return ContinueStmt{At: at}, nil
+func (p *Parser) loopInterruptStmts() (Stmt, error) {
+	keyword := p.peekBehind()
+	if p.loopLevel == 0 {
+		return nil, p.newError(keyword, fmt.Sprintf("Unexpected '%s' outside of while|for loop", keyword.Lexeme))
 	}
-	return nil, p.generateError(p.peekBehind(), fmt.Sprintf("Unexpected '%s' outside of while|for loop", at.Lexeme))
+
+	if _, err := p.consume(scanner.SEMICOLON, fmt.Sprintf("Expected ';' after a '%s'.", keyword.Lexeme)); err != nil {
+		return nil, err
+	}
+	if keyword.Type == scanner.BREAK {
+		return BreakStmt{Keyword: keyword}, nil
+	}
+	return ContinueStmt{Keyword: keyword}, nil
 }
 
-func (p *Parser) expression() (Expr, error) {
-	expr, err := p.ternary()
+func (p *Parser) returnStmt() (Stmt, error) {
+	keyword := p.peekBehind()
+	if p.funcLevel == 0 {
+		return nil, p.newError(keyword, fmt.Sprintf("'%s' outside of function", keyword.Lexeme))
+	}
 
-	if err != nil {
+	var expr Expr = nil
+	var err error = nil
+	if !p.match(scanner.SEMICOLON) {
+		if expr, err = p.expression(); err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(scanner.SEMICOLON, fmt.Sprintf("Expected ';' after a '%s'.", keyword.Lexeme)); err != nil {
 		return nil, err
 	}
 
-	for p.match(scanner.COMMA) {
-		expr, err = p.ternary()
+	return ReturnStmt{Keyword: keyword, Expr: expr}, nil
+}
 
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return expr, nil
+func (p *Parser) expression() (Expr, error) {
+	return p.ternary()
 }
 
 func (p *Parser) ternary() (Expr, error) {
@@ -424,7 +481,7 @@ func (p *Parser) ternary() (Expr, error) {
 		return nil, err
 	}
 
-	if err := p.consume(scanner.COLON, "Expected ':' after '?'."); err != nil {
+	if _, err := p.consume(scanner.COLON, "Expected ':' after '?'."); err != nil {
 		return nil, err
 	}
 
@@ -451,7 +508,7 @@ func (p *Parser) assignment() (Expr, error) {
 		if t, ok := expr.(VariableExpr); ok {
 			return AssignmentExpr{Name: t.Name, Value: value}, nil
 		}
-		return nil, p.generateError(equals, "Invalid assignment target.")
+		return nil, p.newError(equals, "Invalid assignment target.")
 	}
 
 	return expr, nil
@@ -487,7 +544,7 @@ func (p *Parser) factor() (Expr, error) {
 
 func (p *Parser) unary() (Expr, error) {
 	if !p.match(scanner.BANG, scanner.MINUS) {
-		return p.primary()
+		return p.call()
 	}
 	token := p.peekBehind()
 	right, err := p.unary()
@@ -497,6 +554,99 @@ func (p *Parser) unary() (Expr, error) {
 	}
 
 	return UnaryExpr{Operator: token, Right: right}, nil
+}
+
+func (p *Parser) finishCall(callee Expr) (Expr, error) {
+	arguments := make([]Expr, 0)
+
+	if p.match(scanner.RIGHT_PAREN) {
+		return CallExpr{Callee: callee, Parenthesis: p.peekBehind(), Arguments: arguments}, nil
+	}
+
+	firstArg, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	arguments = append(arguments, firstArg)
+
+	for p.match(scanner.COMMA) {
+		if len(arguments) >= 255 {
+			return nil, p.newError(p.peek(), "Can't have more than 255 arguments.")
+		}
+
+		arg, err := p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+		arguments = append(arguments, arg)
+	}
+
+	if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' after arguments."); err != nil {
+		return nil, err
+	}
+
+	return CallExpr{Callee: callee, Parenthesis: p.peekBehind(), Arguments: arguments}, nil
+}
+
+func (p *Parser) call() (Expr, error) {
+	expr, err := p.lambda()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(scanner.LEFT_PAREN) {
+		if expr, err = p.finishCall(expr); err != nil {
+			return nil, err
+		}
+	}
+
+	return expr, nil
+}
+
+func (p *Parser) lambda() (Expr, error) {
+	if !p.match(scanner.FUN) {
+		return p.primary()
+	}
+
+	p.funcLevel += 1
+	defer func() { p.funcLevel -= 1 }()
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
+		return nil, err
+	}
+
+	parameters := make([]scanner.Token, 0)
+	var parenthesisToken scanner.Token
+	var err error
+
+	if p.match(scanner.RIGHT_PAREN) {
+		parenthesisToken = p.peekBehind()
+	} else {
+		firstParam := p.advance()
+		parameters = append(parameters, firstParam)
+
+		for p.match(scanner.COMMA) {
+			parameters = append(parameters, p.advance())
+		}
+
+		parenthesisToken, err = p.consume(scanner.RIGHT_PAREN, "Expected ')' after anonymous function parameters.")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before anonymous function body."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {
@@ -527,12 +677,12 @@ func (p *Parser) primary() (Expr, error) {
 			return nil, err
 		}
 
-		if err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
+		if _, err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
 			return nil, err
 		}
 
 		return GroupingExpr{Expr: expr}, nil
 	}
 
-	return nil, p.generateError(p.peek(), "Expected an expression.")
+	return nil, p.newError(p.peek(), "Expected an expression.")
 }

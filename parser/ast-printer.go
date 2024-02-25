@@ -38,12 +38,20 @@ func (a *AstPrinter) parenthesizeStmt(name string, stmts ...Stmt) string {
 	return builder.String()
 }
 
-func (a *AstPrinter) VisitLiteralExpr(literal LiteralExpr) (any, error) {
-	if literal.Value == nil {
-		return "", nil
-	}
+func (a *AstPrinter) VisitTernaryExpr(ternary TernaryExpr) (any, error) {
+	return a.parenthesize("?:", ternary.Condition, ternary.Left, ternary.Right), nil
+}
 
-	return fmt.Sprintf("%v", literal.Value), nil
+func (a *AstPrinter) VisitAssignmentExpr(assignment AssignmentExpr) (any, error) {
+	return a.parenthesize("assignment", assignment.Value), nil
+}
+
+func (a *AstPrinter) VisitLogicalExpr(expr LogicalExpr) (any, error) {
+	return a.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
+}
+
+func (a *AstPrinter) VisitBinaryExpr(binary BinaryExpr) (any, error) {
+	return a.parenthesize(binary.Operator.Lexeme, binary.Left, binary.Right), nil
 }
 
 func (a *AstPrinter) VisitGroupingExpr(grouping GroupingExpr) (any, error) {
@@ -54,20 +62,20 @@ func (a *AstPrinter) VisitUnaryExpr(unary UnaryExpr) (any, error) {
 	return a.parenthesize(unary.Operator.Lexeme, unary.Right), nil
 }
 
-func (a *AstPrinter) VisitBinaryExpr(binary BinaryExpr) (any, error) {
-	return a.parenthesize(binary.Operator.Lexeme, binary.Left, binary.Right), nil
+func (a *AstPrinter) VisitCallExpr(expr CallExpr) (any, error) {
+	return a.parenthesize(a.parenthesize("callable", expr.Callee), expr.Arguments...), nil
 }
 
-func (a *AstPrinter) VisitLogicalExpr(expr LogicalExpr) (any, error) {
-	return a.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
+func (a *AstPrinter) VisitLambdaExpr(expr LambdaExpr) (any, error) {
+	return a.parenthesizeStmt("anonCallable", expr.Body...), nil
 }
 
-func (a *AstPrinter) VisitAssignmentExpr(assignment AssignmentExpr) (any, error) {
-	return a.parenthesize("assignment", assignment.Value), nil
-}
+func (a *AstPrinter) VisitLiteralExpr(literal LiteralExpr) (any, error) {
+	if literal.Value == nil {
+		return "", nil
+	}
 
-func (a *AstPrinter) VisitTernaryExpr(ternary TernaryExpr) (any, error) {
-	return a.parenthesize("?:", ternary.Condition, ternary.Left, ternary.Right), nil
+	return fmt.Sprintf("%v", literal.Value), nil
 }
 
 func (a *AstPrinter) VisitVariableExpr(variableExpr VariableExpr) (any, error) {
@@ -78,12 +86,16 @@ func (a *AstPrinter) VisitExpressionStmt(expressionStmt ExpressionStmt) (any, er
 	return a.parenthesize("exprStmt", expressionStmt.Expression), nil
 }
 
-func (a *AstPrinter) VisitPrintStmt(printStmt PrintStmt) (any, error) {
-	return a.parenthesize("printStmt", printStmt.Expression), nil
+func (a *AstPrinter) VisitPrintStmt(stmt PrintStmt) (any, error) {
+	return a.parenthesize("print", stmt.Expression), nil
 }
 
 func (a *AstPrinter) VisitVarStmt(varStmt VarStmt) (any, error) {
 	return a.parenthesize("varStmt "+varStmt.Name.Lexeme, varStmt.Initializer), nil
+}
+
+func (a *AstPrinter) VisitFunctionStmt(stmt FunctionStmt) (any, error) {
+	return a.parenthesizeStmt("funDecl", stmt.Body...), nil
 }
 
 func (a *AstPrinter) VisitBlockStmt(stmt BlockStmt) (any, error) {
@@ -108,6 +120,10 @@ func (a *AstPrinter) VisitBreakStmt(_ BreakStmt) (any, error) {
 
 func (a *AstPrinter) VisitContinueStmt(_ ContinueStmt) (any, error) {
 	return a.parenthesizeStmt("continueStmt", nil), nil
+}
+
+func (a *AstPrinter) VisitReturnStmt(stmt ReturnStmt) (any, error) {
+	return a.parenthesize("returnStmt", stmt.Expr), nil
 }
 
 func (a *AstPrinter) Print(statements []Stmt) any {

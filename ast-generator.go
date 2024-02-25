@@ -82,26 +82,30 @@ func main() {
 	}
 	outputDir := os.Args[1]
 
-	//defineAst(outputDir, "Expr", []string{
-	//	"Ternary  	: Condition Expr, Left Expr, Right Expr",
-	//	"Assignment : Name Token, Value Expr",
-	//	"Logical	: Left Expr, Operator Token, Right Expr",
-	//	"Binary   	: Left Expr, Operator Token, Right Expr",
-	//	"Grouping 	: Expr Expr",
-	//	"Literal  	: Value any",
-	//	"Unary    	: Operator Token, Right Expr",
-	//	"Variable 	: Name Token",
-	//})
+	defineAst(outputDir, "Expr", []string{
+		"Ternary  	: Condition Expr, Left Expr, Right Expr",
+		"Assignment : Name Token, Value Expr",
+		"Logical	: Left Expr, Operator Token, Right Expr",
+		"Binary		: Left Expr, Operator Token, Right Expr",
+		"Grouping	: Expr Expr",
+		"Literal	: Value any",
+		"Unary		: Operator Token, Right Expr",
+		"Call		: Callee Expr, Parenthesis Token, Arguments []Expr",
+		"Lambda		: Parenthesis Token, Parameters []Token, Body []Stmt",
+		"Variable 	: Name Token",
+	})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
 		"Var 		: Name Token, Initializer Expr",
+		"Function 	: Name Token, Parameters []Token, Body []Stmt",
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While 		: Condition Expr, Body Stmt",
 		"For 		: Initializer Stmt, Condition Expr, Increment Stmt, Body Stmt",
-		"Break 		: At Token",
-		"Continue 	: At Token",
+		"Break 		: Keyword Token",
+		"Continue 	: Keyword Token",
+		"Return 	: Keyword Token, Expr Expr",
 	})
 }
