@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"glox/interpreter"
 	"glox/parser"
+	"glox/resolver"
 	"glox/scanner"
 	"os"
 	"strings"
@@ -37,6 +38,12 @@ func run(source string) int {
 	if len(errs) != 0 {
 		printErrors(errs...)
 		return 65
+	}
+
+	rslvr := resolver.New(inter)
+	if _, err := rslvr.ResolveStmts(ast); err != nil {
+		printErrors(err)
+		return 67
 	}
 
 	printer := parser.AstPrinter{}

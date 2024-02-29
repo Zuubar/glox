@@ -23,6 +23,19 @@ func (e *environment) get(name string) (any, bool) {
 	return value, ok
 }
 
+func (e *environment) ancestor(depth int32) *environment {
+	env := e
+	for i := 0; i < int(depth); i++ {
+		env = env.enclosing
+	}
+
+	return env
+}
+
+func (e *environment) getAt(name string, depth int32) (any, bool) {
+	return e.ancestor(depth).get(name)
+}
+
 func (e *environment) define(name string, value any) {
 	e.values[name] = value
 }
@@ -38,4 +51,8 @@ func (e *environment) assign(name string, value any) bool {
 	}
 
 	return false
+}
+
+func (e *environment) assignAt(name string, value any, depth int32) bool {
+	return e.ancestor(depth).assign(name, value)
 }
