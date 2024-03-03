@@ -19,8 +19,14 @@ func printErrors(errs ...error) {
 	}
 }
 
+func printWarnings(warnings ...error) {
+	for _, err := range warnings {
+		fmt.Print("\033[33m" + err.Error() + "\033[0m")
+	}
+}
+
 func printDebug(message string) {
-	fmt.Print("\033[33m" + message + "\033[0m")
+	fmt.Print("\033[92m" + message + "\033[0m")
 }
 
 func run(source string) int {
@@ -40,14 +46,16 @@ func run(source string) int {
 		return 65
 	}
 
+	printer := parser.AstPrinter{}
+	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+
 	rslvr := resolver.New(inter)
-	if _, err := rslvr.ResolveStmts(ast); err != nil {
+	if _, err := rslvr.Resolve(ast); err != nil {
 		printErrors(err)
 		return 67
 	}
 
-	printer := parser.AstPrinter{}
-	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+	printWarnings(rslvr.Warnings()...)
 
 	if err := inter.Interpret(ast); err != nil {
 		printErrors(err)

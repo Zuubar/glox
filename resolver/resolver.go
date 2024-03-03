@@ -7,19 +7,41 @@ import (
 	"glox/scanner"
 )
 
+type variable struct {
+	token scanner.Token
+	state string
+}
+
 type Resolver struct {
 	interpreter     *interpreter.Interpreter
-	scopes          []map[string]bool
+	scopes          []map[string]*variable
+	warnings        []*Warning
 	currentFunction string
-	loopLevel       int32
+	loopLevel       int
 }
 
 func New(interpreter *interpreter.Interpreter) *Resolver {
-	return &Resolver{interpreter: interpreter, scopes: make([]map[string]bool, 0), currentFunction: FunctionTypeNone, loopLevel: 0}
+	return &Resolver{interpreter: interpreter, scopes: make([]map[string]*variable, 0), warnings: make([]*Warning, 0), currentFunction: functionTypeNone, loopLevel: 0}
+}
+
+func (r *Resolver) Resolve(stmt []parser.Stmt) (any, error) {
+	return r.resolveStmts(stmt)
+}
+
+func (r *Resolver) Warnings() []error {
+	warnings := make([]error, 0)
+	for _, warning := range r.warnings {
+		warnings = append(warnings, warning)
+	}
+	return warnings
 }
 
 func (r *Resolver) newError(token scanner.Token, message string) *Error {
 	return &Error{Token: token, Message: message}
+}
+
+func (r *Resolver) newWarning(token scanner.Token, message string) {
+	r.warnings = append(r.warnings, &Warning{Token: token, Message: message})
 }
 
 func (r *Resolver) declare(name scanner.Token) error {
@@ -33,7 +55,8 @@ func (r *Resolver) declare(name scanner.Token) error {
 		return r.newError(name, fmt.Sprintf("Redeclared '%s' variable in this scope.", name.Lexeme))
 	}
 
-	scope[name.Lexeme] = false
+	scope[name.Lexeme] = &variable{token: name, state: variableStateDeclared}
+
 	return nil
 }
 
@@ -43,27 +66,33 @@ func (r *Resolver) define(name scanner.Token) {
 	}
 
 	scope := *r.peekScope()
-	scope[name.Lexeme] = true
+	scope[name.Lexeme].state = variableStateDefined
 }
 
 func (r *Resolver) beginScope() {
-	r.scopes = append(r.scopes, map[string]bool{})
+	r.scopes = append(r.scopes, map[string]*variable{})
 }
 
 func (r *Resolver) endScope() {
+	for name, details := range *r.peekScope() {
+		if details.state != variableStateRead {
+			r.newWarning(details.token, fmt.Sprintf("Unused variable '%s'.", name))
+		}
+	}
+
 	r.scopes = r.scopes[:len(r.scopes)-1]
 }
 
-func (r *Resolver) peekScope() *map[string]bool {
+func (r *Resolver) peekScope() *map[string]*variable {
 	return &r.scopes[len(r.scopes)-1]
 }
 
-func (r *Resolver) beginLoop() int32 {
+func (r *Resolver) beginLoop() int {
 	r.loopLevel += 1
 	return r.loopLevel
 }
 
-func (r *Resolver) endLoop() int32 {
+func (r *Resolver) endLoop() int {
 	r.loopLevel -= 1
 	return r.loopLevel
 }
@@ -80,7 +109,7 @@ func (r *Resolver) resolveStmt(stmt parser.Stmt) (any, error) {
 	return stmt.Accept(r)
 }
 
-func (r *Resolver) ResolveStmts(stmt []parser.Stmt) (any, error) {
+func (r *Resolver) resolveStmts(stmt []parser.Stmt) (any, error) {
 	for _, stmt := range stmt {
 		if _, err := r.resolveStmt(stmt); err != nil {
 			return nil, err
@@ -119,13 +148,16 @@ func (r *Resolver) resolveFunctions(function any, functionType string) (any, err
 		r.define(parameter)
 	}
 
-	return r.ResolveStmts(body)
+	return r.resolveStmts(body)
 }
 
-func (r *Resolver) resolveLocal(expr parser.Expr, name scanner.Token) (any, error) {
+func (r *Resolver) resolveLocal(expr parser.Expr, name scanner.Token, isRead bool) (any, error) {
 	for i := len(r.scopes) - 1; i >= 0; i-- {
 		scope := r.scopes[i]
-		if _, ok := scope[name.Lexeme]; ok {
+		if variable, ok := scope[name.Lexeme]; ok {
+			if isRead {
+				variable.state = variableStateRead
+			}
 			r.interpreter.Resolve(expr, int32(len(r.scopes)-1-i))
 			break
 		}
@@ -151,7 +183,7 @@ func (r *Resolver) VisitAssignmentExpr(expr parser.AssignmentExpr) (any, error) 
 		return nil, err
 	}
 
-	return r.resolveLocal(expr, expr.Name)
+	return r.resolveLocal(expr, expr.Name, false)
 }
 
 func (r *Resolver) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
@@ -197,20 +229,20 @@ func (r *Resolver) VisitCallExpr(expr parser.CallExpr) (any, error) {
 }
 
 func (r *Resolver) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
-	return r.resolveFunctions(expr, FunctionTypeFunction)
+	return r.resolveFunctions(expr, functionTypeFunction)
 }
 
 func (r *Resolver) VisitVariableExpr(expr parser.VariableExpr) (any, error) {
-	lexeme := expr.Name.Lexeme
+	varName := expr.Name.Lexeme
 	if len(r.scopes) != 0 {
-		status, ok := (*r.peekScope())[lexeme]
+		v, ok := (*r.peekScope())[varName]
 
-		if ok && !status {
-			return nil, r.newError(expr.Name, fmt.Sprintf("Can't read local variable '%s' in it's own initializer", lexeme))
+		if ok && v.state == variableStateDeclared {
+			return nil, r.newError(expr.Name, fmt.Sprintf("Can't read local variable '%s' in it's own initializer", varName))
 		}
 	}
 
-	return r.resolveLocal(expr, expr.Name)
+	return r.resolveLocal(expr, expr.Name, true)
 }
 
 func (r *Resolver) VisitExpressionStmt(stmt parser.ExpressionStmt) (any, error) {
@@ -241,13 +273,13 @@ func (r *Resolver) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
 	}
 	r.define(stmt.Name)
 
-	return r.resolveFunctions(stmt, FunctionTypeFunction)
+	return r.resolveFunctions(stmt, functionTypeFunction)
 }
 
 func (r *Resolver) VisitBlockStmt(stmt parser.BlockStmt) (any, error) {
 	r.beginScope()
 	defer r.endScope()
-	if _, err := r.ResolveStmts(stmt.Declarations); err != nil {
+	if _, err := r.resolveStmts(stmt.Declarations); err != nil {
 		return nil, err
 	}
 
@@ -322,7 +354,7 @@ func (r *Resolver) VisitContinueStmt(stmt parser.ContinueStmt) (any, error) {
 }
 
 func (r *Resolver) VisitReturnStmt(stmt parser.ReturnStmt) (any, error) {
-	if r.currentFunction == FunctionTypeNone {
+	if r.currentFunction == functionTypeNone {
 		return nil, r.newError(stmt.Keyword, "Can't return from top-level code.")
 	}
 

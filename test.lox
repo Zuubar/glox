@@ -1,4 +1,8 @@
-var a = 1;
+{
+    var a = 1;
+    var b = a;
+}
+
 
 fun fib(n) {
   if (n <= 1) return n;
