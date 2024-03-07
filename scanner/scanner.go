@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"errors"
 	"strconv"
 )
 
@@ -32,11 +31,10 @@ type Scanner struct {
 	start   int32
 	current int32
 	line    int32
-	err     error
 }
 
 func New(source string) *Scanner {
-	return &Scanner{source: source, tokens: make([]Token, 0, 100), line: 1, err: nil}
+	return &Scanner{source: source, tokens: make([]Token, 0, 100), line: 1}
 }
 
 func (s *Scanner) isAtEnd() bool {
@@ -158,6 +156,7 @@ func (s *Scanner) identifier() {
 }
 
 func (s *Scanner) Run() ([]Token, error) {
+	var err error
 	for !s.isAtEnd() {
 		char := s.advance()
 
@@ -207,7 +206,7 @@ func (s *Scanner) Run() ([]Token, error) {
 					s.advance()
 				}
 			} else if s.match('*') {
-				errors.As(s.blockComment(), &s.err)
+				err = s.blockComment()
 			} else {
 				s.addToken(SLASH, nil)
 			}
@@ -242,7 +241,7 @@ func (s *Scanner) Run() ([]Token, error) {
 				s.addToken(LESS, nil)
 			}
 		case '"':
-			errors.As(s.string(), &s.err)
+			err = s.string()
 			break
 		case ' ':
 		case '\r':
@@ -257,12 +256,12 @@ func (s *Scanner) Run() ([]Token, error) {
 			} else if s.isAlpha(char) {
 				s.identifier()
 			} else {
-				s.err = &Error{Line: s.line, Message: "Unexpected character."}
+				err = &Error{Line: s.line, Message: "Unexpected character."}
 			}
 		}
 		s.start = s.current
 	}
 	s.addToken(EOF, nil)
 
-	return s.tokens, s.err
+	return s.tokens, err
 }

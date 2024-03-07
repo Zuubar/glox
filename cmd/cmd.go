@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"glox/interpreter"
 	"glox/parser"
+	"glox/resolver"
 	"glox/scanner"
 	"os"
 	"strings"
 )
 
-var inter *interpreter.Interpreter
+var _interpreter *interpreter.Interpreter
 
 func printErrors(errs ...error) {
 	for _, err := range errs {
@@ -18,21 +19,28 @@ func printErrors(errs ...error) {
 	}
 }
 
+func printWarnings(warnings ...error) {
+	for _, err := range warnings {
+		fmt.Print("\033[33m" + err.Error() + "\033[0m")
+	}
+}
+
 func printDebug(message string) {
-	fmt.Print("\033[33m" + message + "\033[0m")
+	fmt.Print("\033[92m" + message + "\033[0m")
 }
 
 func run(source string) int {
-	scnr := scanner.New(source)
-	tokens, err := scnr.Run()
+	_scanner := scanner.New(source)
+	tokens, err := _scanner.Run()
 
 	if err != nil {
 		printErrors(err)
+		return 63
 	}
 	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
-	prsr := parser.New(tokens)
-	ast, errs := prsr.Parse()
+	_parser := parser.New(tokens)
+	statements, errs := _parser.Parse()
 
 	if len(errs) != 0 {
 		printErrors(errs...)
@@ -40,9 +48,17 @@ func run(source string) int {
 	}
 
 	printer := parser.AstPrinter{}
-	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(statements)))
 
-	if err := inter.Interpret(ast); err != nil {
+	_resolver := resolver.New(_interpreter)
+	if _, err := _resolver.Resolve(statements); err != nil {
+		printErrors(err)
+		return 67
+	}
+
+	printWarnings(_resolver.Warnings()...)
+
+	if err := _interpreter.Interpret(statements); err != nil {
 		printErrors(err)
 		return 70
 	}
@@ -61,6 +77,7 @@ func runFile(filePath string) {
 }
 
 func repl() {
+	// Todo: Don't use "print(expr);"
 	reader := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -83,7 +100,7 @@ func repl() {
 }
 
 func Run(args []string) {
-	inter = interpreter.New()
+	_interpreter = interpreter.New()
 	if len(args) == 0 {
 		repl()
 	} else if len(args) == 1 {

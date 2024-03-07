@@ -6,14 +6,12 @@ import (
 )
 
 type Parser struct {
-	tokens    []scanner.Token
-	current   int32
-	loopLevel int32
-	funcLevel int32
+	tokens  []scanner.Token
+	current int32
 }
 
 func New(tokens []scanner.Token) *Parser {
-	return &Parser{tokens: tokens, loopLevel: 0, funcLevel: 0}
+	return &Parser{tokens: tokens}
 }
 
 func (p *Parser) Parse() ([]Stmt, []error) {
@@ -189,11 +187,9 @@ func (p *Parser) statement() (Stmt, error) {
 		return p.ifStmt()
 	}
 	if p.match(scanner.WHILE) {
-		p.loopLevel += 1
 		return p.whileStmt()
 	}
 	if p.match(scanner.FOR) {
-		p.loopLevel += 1
 		return p.forStmt()
 	}
 	if p.match(scanner.BREAK, scanner.CONTINUE) {
@@ -207,8 +203,6 @@ func (p *Parser) statement() (Stmt, error) {
 }
 
 func (p *Parser) functionDecl(kind string) (Stmt, error) {
-	p.funcLevel += 1
-	defer func() { p.funcLevel -= 1 }()
 	name, err := p.consume(scanner.IDENTIFIER, fmt.Sprintf("Expteced %s name.", kind))
 	if err != nil {
 		return nil, err
@@ -324,7 +318,6 @@ func (p *Parser) ifStmt() (Stmt, error) {
 }
 
 func (p *Parser) whileStmt() (Stmt, error) {
-	defer func() { p.loopLevel -= 1 }()
 	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'while'."); err != nil {
 		return nil, err
 	}
@@ -347,7 +340,6 @@ func (p *Parser) whileStmt() (Stmt, error) {
 }
 
 func (p *Parser) forStmt() (Stmt, error) {
-	defer func() { p.loopLevel -= 1 }()
 	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' after 'for'."); err != nil {
 		return nil, err
 	}
@@ -367,38 +359,34 @@ func (p *Parser) forStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	var condition Expr
-	err = nil
+	var condition Expr = nil
 
-	if p.match(scanner.SEMICOLON) {
-		condition = LiteralExpr{Value: true}
-	} else {
+	if !p.match(scanner.SEMICOLON) {
 		condition, err = p.expression()
+
+		if err != nil {
+			return nil, err
+		}
 
 		if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after condition."); err != nil {
 			return nil, err
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
+	var increment Stmt = nil
 
-	var increment Expr
-	err = nil
+	if !p.match(scanner.RIGHT_PAREN) {
+		incrementExpr, err := p.expression()
 
-	if p.match(scanner.RIGHT_PAREN) {
-		increment = nil
-	} else {
-		increment, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+		increment = ExpressionStmt{Expression: incrementExpr}
 
 		if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'for'."); err != nil {
 			return nil, err
 		}
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	body, err := p.statement()
@@ -406,7 +394,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	return BlockStmt{Declarations: []Stmt{ForStmt{Initializer: initializer, Condition: condition, Increment: ExpressionStmt{Expression: increment}, Body: body}}}, nil
+	return BlockStmt{Declarations: []Stmt{ForStmt{Initializer: initializer, Condition: condition, Increment: increment, Body: body}}}, nil
 
 	// Desugar into a while.
 
@@ -428,9 +416,6 @@ func (p *Parser) forStmt() (Stmt, error) {
 
 func (p *Parser) loopInterruptStmts() (Stmt, error) {
 	keyword := p.peekBehind()
-	if p.loopLevel == 0 {
-		return nil, p.newError(keyword, fmt.Sprintf("Unexpected '%s' outside of while|for loop", keyword.Lexeme))
-	}
 
 	if _, err := p.consume(scanner.SEMICOLON, fmt.Sprintf("Expected ';' after a '%s'.", keyword.Lexeme)); err != nil {
 		return nil, err
@@ -443,13 +428,10 @@ func (p *Parser) loopInterruptStmts() (Stmt, error) {
 
 func (p *Parser) returnStmt() (Stmt, error) {
 	keyword := p.peekBehind()
-	if p.funcLevel == 0 {
-		return nil, p.newError(keyword, fmt.Sprintf("'%s' outside of function", keyword.Lexeme))
-	}
 
 	var expr Expr = nil
 	var err error = nil
-	if !p.match(scanner.SEMICOLON) {
+	if !p.check(scanner.SEMICOLON) {
 		if expr, err = p.expression(); err != nil {
 			return nil, err
 		}
@@ -611,8 +593,6 @@ func (p *Parser) lambda() (Expr, error) {
 		return p.primary()
 	}
 
-	p.funcLevel += 1
-	defer func() { p.funcLevel -= 1 }()
 	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
 		return nil, err
 	}

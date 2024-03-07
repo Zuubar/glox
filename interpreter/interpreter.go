@@ -12,6 +12,7 @@ import (
 type Interpreter struct {
 	globalEnvironment *environment
 	environment       *environment
+	locals            map[parser.Expr]int32
 }
 
 func New() *Interpreter {
@@ -21,7 +22,7 @@ func New() *Interpreter {
 	globalEnv.define("clock", &nativeClock{})
 	globalEnv.define("str", &nativeStringify{})
 
-	return &Interpreter{globalEnvironment: globalEnv, environment: env}
+	return &Interpreter{globalEnvironment: globalEnv, environment: env, locals: make(map[parser.Expr]int32)}
 }
 
 func (i *Interpreter) newError(token scanner.Token, message string) *Error {
@@ -91,7 +92,19 @@ func (i *Interpreter) executeBlock(statements []parser.Stmt, env *environment) (
 	i.environment = previous
 
 	return nil, nil
+}
 
+func (i *Interpreter) lookupVariable(expr parser.Expr, name scanner.Token) (any, bool) {
+	depth, ok := i.locals[expr]
+	if !ok {
+		return i.globalEnvironment.get(name.Lexeme)
+	}
+
+	return i.environment.getAt(name.Lexeme, depth)
+}
+
+func (i *Interpreter) Resolve(expr parser.Expr, depth int32) {
+	i.locals[expr] = depth
 }
 
 func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) (any, error) {
@@ -109,16 +122,23 @@ func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) (any, error) 
 
 func (i *Interpreter) VisitAssignmentExpr(assignment parser.AssignmentExpr) (any, error) {
 	token := assignment.Name
-	if _, ok := i.environment.get(token.Lexeme); !ok {
-		return nil, i.newError(token, fmt.Sprintf("Undefined variable '%s'.", token.Lexeme))
-	}
-
 	value, err := i.evaluate(assignment.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = i.environment.assign(token.Lexeme, value)
+	assigned := false
+	depth, ok := i.locals[assignment]
+
+	if !ok {
+		assigned = i.globalEnvironment.assign(token.Lexeme, value)
+	} else {
+		assigned = i.environment.assignAt(token.Lexeme, value, depth)
+	}
+
+	if !assigned {
+		return nil, i.newError(token, fmt.Sprintf("Undefined variable '%s'.", token.Lexeme))
+	}
 
 	return value, nil
 }
@@ -281,7 +301,7 @@ func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitVariableExpr(variableExpr parser.VariableExpr) (any, error) {
-	value, ok := i.environment.get(variableExpr.Name.Lexeme)
+	value, ok := i.lookupVariable(variableExpr, variableExpr.Name)
 	if !ok {
 		return nil, i.newError(variableExpr.Name, fmt.Sprintf("Undefined variable '%s'.", variableExpr.Name.Lexeme))
 	}
@@ -371,16 +391,19 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
-	initializer := stmt.Initializer
+	initializer, forCondition := stmt.Initializer, stmt.Condition
 
 	if initializer != nil {
-		_, err := i.execute(initializer)
-		if err != nil {
+		if _, err := i.execute(initializer); err != nil {
 			return nil, err
 		}
 	}
 
-	condition, err := i.evaluate(stmt.Condition)
+	if forCondition == nil {
+		forCondition = parser.LiteralExpr{Value: true}
+	}
+
+	condition, err := i.evaluate(forCondition)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +414,7 @@ func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
 				return err
 			}
 		}
-		condition, _ = i.evaluate(stmt.Condition)
+		condition, _ = i.evaluate(forCondition)
 		return nil
 	}
 
