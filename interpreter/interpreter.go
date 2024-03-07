@@ -391,16 +391,19 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
-	initializer := stmt.Initializer
+	initializer, forCondition := stmt.Initializer, stmt.Condition
 
 	if initializer != nil {
-		_, err := i.execute(initializer)
-		if err != nil {
+		if _, err := i.execute(initializer); err != nil {
 			return nil, err
 		}
 	}
 
-	condition, err := i.evaluate(stmt.Condition)
+	if forCondition == nil {
+		forCondition = parser.LiteralExpr{Value: true}
+	}
+
+	condition, err := i.evaluate(forCondition)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +414,7 @@ func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
 				return err
 			}
 		}
-		condition, _ = i.evaluate(stmt.Condition)
+		condition, _ = i.evaluate(forCondition)
 		return nil
 	}
 

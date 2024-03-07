@@ -359,38 +359,34 @@ func (p *Parser) forStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	var condition Expr
-	err = nil
+	var condition Expr = nil
 
-	if p.match(scanner.SEMICOLON) {
-		condition = LiteralExpr{Value: true}
-	} else {
+	if !p.match(scanner.SEMICOLON) {
 		condition, err = p.expression()
+
+		if err != nil {
+			return nil, err
+		}
 
 		if _, err := p.consume(scanner.SEMICOLON, "Expected ';' after condition."); err != nil {
 			return nil, err
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
+	var increment Stmt = nil
 
-	var increment Expr
-	err = nil
+	if !p.match(scanner.RIGHT_PAREN) {
+		incrementExpr, err := p.expression()
 
-	if p.match(scanner.RIGHT_PAREN) {
-		increment = nil
-	} else {
-		increment, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+		increment = ExpressionStmt{Expression: incrementExpr}
 
 		if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' at the end of 'for'."); err != nil {
 			return nil, err
 		}
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	body, err := p.statement()
@@ -398,7 +394,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	return BlockStmt{Declarations: []Stmt{ForStmt{Initializer: initializer, Condition: condition, Increment: ExpressionStmt{Expression: increment}, Body: body}}}, nil
+	return BlockStmt{Declarations: []Stmt{ForStmt{Initializer: initializer, Condition: condition, Increment: increment, Body: body}}}, nil
 
 	// Desugar into a while.
 

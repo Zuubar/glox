@@ -11,5 +11,5 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("%s \n[line %d]\n", e.Message, e.Token.Line)
+	return fmt.Sprintf("[line %d] %s\n", e.Token.Line, e.Message)
 }

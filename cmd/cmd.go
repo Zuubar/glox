@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var inter *interpreter.Interpreter
+var _interpreter *interpreter.Interpreter
 
 func printErrors(errs ...error) {
 	for _, err := range errs {
@@ -30,16 +30,17 @@ func printDebug(message string) {
 }
 
 func run(source string) int {
-	scnr := scanner.New(source)
-	tokens, err := scnr.Run()
+	_scanner := scanner.New(source)
+	tokens, err := _scanner.Run()
 
 	if err != nil {
 		printErrors(err)
+		return 63
 	}
 	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
-	prsr := parser.New(tokens)
-	ast, errs := prsr.Parse()
+	_parser := parser.New(tokens)
+	statements, errs := _parser.Parse()
 
 	if len(errs) != 0 {
 		printErrors(errs...)
@@ -47,17 +48,17 @@ func run(source string) int {
 	}
 
 	printer := parser.AstPrinter{}
-	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(ast)))
+	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(statements)))
 
-	rslvr := resolver.New(inter)
-	if _, err := rslvr.Resolve(ast); err != nil {
+	_resolver := resolver.New(_interpreter)
+	if _, err := _resolver.Resolve(statements); err != nil {
 		printErrors(err)
 		return 67
 	}
 
-	printWarnings(rslvr.Warnings()...)
+	printWarnings(_resolver.Warnings()...)
 
-	if err := inter.Interpret(ast); err != nil {
+	if err := _interpreter.Interpret(statements); err != nil {
 		printErrors(err)
 		return 70
 	}
@@ -76,6 +77,7 @@ func runFile(filePath string) {
 }
 
 func repl() {
+	// Todo: Don't use "print(expr);"
 	reader := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -98,7 +100,7 @@ func repl() {
 }
 
 func Run(args []string) {
-	inter = interpreter.New()
+	_interpreter = interpreter.New()
 	if len(args) == 0 {
 		repl()
 	} else if len(args) == 1 {
