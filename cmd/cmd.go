@@ -25,10 +25,6 @@ func printWarnings(warnings ...error) {
 	}
 }
 
-func printDebug(message string) {
-	fmt.Print("\033[92m" + message + "\033[0m")
-}
-
 func run(source string) int {
 	_scanner := scanner.New(source)
 	tokens, err := _scanner.Run()
@@ -37,7 +33,6 @@ func run(source string) int {
 		printErrors(err)
 		return 63
 	}
-	printDebug(fmt.Sprintf("Scanner: %v\n", tokens))
 
 	_parser := parser.New(tokens)
 	statements, errs := _parser.Parse()
@@ -46,9 +41,6 @@ func run(source string) int {
 		printErrors(errs...)
 		return 65
 	}
-
-	printer := parser.AstPrinter{}
-	printDebug(fmt.Sprintf("AST: %v\n", printer.Print(statements)))
 
 	_resolver := resolver.New(_interpreter)
 	if _, err := _resolver.Resolve(statements); err != nil {

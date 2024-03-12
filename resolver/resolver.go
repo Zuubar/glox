@@ -194,6 +194,14 @@ func (r *Resolver) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
 	return r.resolveExpr(expr.Right)
 }
 
+func (r *Resolver) VisitSetExpr(expr parser.SetExpr) (any, error) {
+	if _, err := r.resolveExpr(expr.Object); err != nil {
+		return nil, err
+	}
+
+	return r.resolveExpr(expr.Value)
+}
+
 func (r *Resolver) VisitBinaryExpr(expr parser.BinaryExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Left); err != nil {
 		return nil, err
@@ -212,6 +220,10 @@ func (r *Resolver) VisitLiteralExpr(_ parser.LiteralExpr) (any, error) {
 
 func (r *Resolver) VisitUnaryExpr(expr parser.UnaryExpr) (any, error) {
 	return r.resolveExpr(expr.Right)
+}
+
+func (r *Resolver) VisitGetExpr(expr parser.GetExpr) (any, error) {
+	return r.resolveExpr(expr.Object)
 }
 
 func (r *Resolver) VisitCallExpr(expr parser.CallExpr) (any, error) {
@@ -263,6 +275,23 @@ func (r *Resolver) VisitVarStmt(stmt parser.VarStmt) (any, error) {
 		}
 	}
 	r.define(stmt.Name)
+
+	return nil, nil
+}
+
+func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
+	r.define(stmt.Name)
+	if err := r.declare(stmt.Name); err != nil {
+		return nil, err
+	}
+
+	r.beginScope()
+	for _, method := range stmt.Methods {
+		if _, err := r.resolveFunctions(method, functionTypeMethod); err != nil {
+			return nil, err
+		}
+	}
+	r.endScope()
 
 	return nil, nil
 }

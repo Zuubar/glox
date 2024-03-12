@@ -6,25 +6,25 @@ import (
 	"glox/parser"
 )
 
-type Callable interface {
+type callable interface {
 	arity() int32
 	call(*Interpreter, []any) (any, error)
 }
 
-type Function struct {
+type loxFunction struct {
 	funStmt parser.FunctionStmt
 	closure *environment
 }
 
-func newFunction(funStmt parser.FunctionStmt, closure *environment) *Function {
-	return &Function{funStmt: funStmt, closure: closure}
+func newLoxFunction(funStmt parser.FunctionStmt, closure *environment) *loxFunction {
+	return &loxFunction{funStmt: funStmt, closure: closure}
 }
 
-func (f *Function) arity() int32 {
+func (f *loxFunction) arity() int32 {
 	return int32(len(f.funStmt.Parameters))
 }
 
-func (f *Function) call(interpreter *Interpreter, arguments []any) (any, error) {
+func (f *loxFunction) call(interpreter *Interpreter, arguments []any) (any, error) {
 	newEnv := newEnvironment(f.closure)
 
 	for i := 0; i < len(arguments); i++ {
@@ -43,6 +43,26 @@ func (f *Function) call(interpreter *Interpreter, arguments []any) (any, error) 
 	return nil, nil
 }
 
-func (f *Function) String() string {
+func (f *loxFunction) String() string {
 	return fmt.Sprintf("<fn %s>", f.funStmt.Name.Lexeme)
+}
+
+type loxClass struct {
+	stmt parser.ClassStmt
+}
+
+func newClass(class parser.ClassStmt) *loxClass {
+	return &loxClass{stmt: class}
+}
+
+func (c *loxClass) arity() int32 {
+	return 0
+}
+
+func (c *loxClass) call(interpreter *Interpreter, arguments []any) (any, error) {
+	return newLoxInstance(c), nil
+}
+
+func (c *loxClass) String() string {
+	return fmt.Sprintf("<class %s>", c.stmt.Name.Lexeme)
 }

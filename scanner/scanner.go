@@ -202,7 +202,7 @@ func (s *Scanner) Run() ([]Token, error) {
 			break
 		case '/':
 			if s.match('/') {
-				for s.peek() != '\n' {
+				for s.peek() != '\n' && !s.isAtEnd() {
 					s.advance()
 				}
 			} else if s.match('*') {

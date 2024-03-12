@@ -6,10 +6,12 @@ type VisitorExpr interface {
 	VisitTernaryExpr(TernaryExpr) (any, error)
 	VisitAssignmentExpr(AssignmentExpr) (any, error)
 	VisitLogicalExpr(LogicalExpr) (any, error)
+	VisitSetExpr(SetExpr) (any, error)
 	VisitBinaryExpr(BinaryExpr) (any, error)
 	VisitGroupingExpr(GroupingExpr) (any, error)
 	VisitLiteralExpr(LiteralExpr) (any, error)
 	VisitUnaryExpr(UnaryExpr) (any, error)
+	VisitGetExpr(GetExpr) (any, error)
 	VisitCallExpr(CallExpr) (any, error)
 	VisitLambdaExpr(LambdaExpr) (any, error)
 	VisitVariableExpr(VariableExpr) (any, error)
@@ -48,6 +50,16 @@ func (l LogicalExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitLogicalExpr(l)
 }
 
+type SetExpr struct {
+	Object Expr
+	Name   scanner.Token
+	Value  Expr
+}
+
+func (s SetExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitSetExpr(s)
+}
+
 type BinaryExpr struct {
 	Left     Expr
 	Operator scanner.Token
@@ -81,6 +93,15 @@ type UnaryExpr struct {
 
 func (u UnaryExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitUnaryExpr(u)
+}
+
+type GetExpr struct {
+	Object Expr
+	Name   scanner.Token
+}
+
+func (g GetExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitGetExpr(g)
 }
 
 type CallExpr struct {

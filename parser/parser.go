@@ -34,6 +34,9 @@ func (p *Parser) isAtEnd() bool {
 }
 
 func (p *Parser) check(tokenType scanner.TokenType) bool {
+	if p.isAtEnd() {
+		return false
+	}
 	return p.peek().Type == tokenType
 }
 
@@ -148,6 +151,9 @@ func (p *Parser) declaration() (Stmt, error) {
 	if p.match(scanner.VAR) {
 		return p.varDecl()
 	}
+	if p.match(scanner.CLASS) {
+		return p.classDecl()
+	}
 	if p.match(scanner.FUN) {
 		return p.functionDecl("function")
 	}
@@ -174,6 +180,35 @@ func (p *Parser) varDecl() (Stmt, error) {
 		return nil, err
 	}
 	return varDecl, nil
+}
+
+func (p *Parser) classDecl() (Stmt, error) {
+	name, err := p.consume(scanner.IDENTIFIER, "Expected class name.")
+
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before class body."); err != nil {
+		return nil, err
+	}
+
+	methods := make([]FunctionStmt, 0)
+	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
+		method, err := p.functionDecl("method")
+
+		if err != nil {
+			return nil, err
+		}
+
+		methods = append(methods, method.(FunctionStmt))
+	}
+
+	if _, err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after class body."); err != nil {
+		return nil, err
+	}
+
+	return ClassStmt{Name: name, Methods: methods}, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -445,6 +480,9 @@ func (p *Parser) returnStmt() (Stmt, error) {
 }
 
 func (p *Parser) expression() (Expr, error) {
+	if p.match(scanner.FUN) {
+		return p.lambda()
+	}
 	return p.ternary()
 }
 
@@ -487,10 +525,15 @@ func (p *Parser) assignment() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		if t, ok := expr.(VariableExpr); ok {
+
+		switch t := expr.(type) {
+		case VariableExpr:
 			return AssignmentExpr{Name: t.Name, Value: value}, nil
+		case GetExpr:
+			return SetExpr{Object: t.Object, Name: t.Name, Value: value}, nil
+		default:
+			return nil, p.newError(equals, "Invalid assignment target.")
 		}
-		return nil, p.newError(equals, "Invalid assignment target.")
 	}
 
 	return expr, nil
@@ -573,60 +616,31 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 }
 
 func (p *Parser) call() (Expr, error) {
-	expr, err := p.lambda()
+	expr, err := p.primary()
 
 	if err != nil {
 		return nil, err
 	}
 
-	for p.match(scanner.LEFT_PAREN) {
-		if expr, err = p.finishCall(expr); err != nil {
-			return nil, err
+	for {
+		if p.match(scanner.LEFT_PAREN) {
+			if expr, err = p.finishCall(expr); err != nil {
+				return nil, err
+			}
+		} else if p.match(scanner.DOT) {
+			name, err := p.consume(scanner.IDENTIFIER, "Expected property name after '.'.")
+
+			if err != nil {
+				return nil, err
+			}
+
+			expr = GetExpr{Object: expr, Name: name}
+		} else {
+			break
 		}
 	}
 
 	return expr, nil
-}
-
-func (p *Parser) lambda() (Expr, error) {
-	if !p.match(scanner.FUN) {
-		return p.primary()
-	}
-
-	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
-		return nil, err
-	}
-
-	parameters := make([]scanner.Token, 0)
-	var parenthesisToken scanner.Token
-	var err error
-
-	if p.match(scanner.RIGHT_PAREN) {
-		parenthesisToken = p.peekBehind()
-	} else {
-		firstParam := p.advance()
-		parameters = append(parameters, firstParam)
-
-		for p.match(scanner.COMMA) {
-			parameters = append(parameters, p.advance())
-		}
-
-		parenthesisToken, err = p.consume(scanner.RIGHT_PAREN, "Expected ')' after anonymous function parameters.")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before anonymous function body."); err != nil {
-		return nil, err
-	}
-
-	body, err := p.block()
-	if err != nil {
-		return nil, err
-	}
-
-	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
 func (p *Parser) primary() (Expr, error) {
@@ -665,4 +679,41 @@ func (p *Parser) primary() (Expr, error) {
 	}
 
 	return nil, p.newError(p.peek(), "Expected an expression.")
+}
+
+func (p *Parser) lambda() (Expr, error) {
+	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
+		return nil, err
+	}
+
+	parameters := make([]scanner.Token, 0)
+	var parenthesisToken scanner.Token
+	var err error
+
+	if p.match(scanner.RIGHT_PAREN) {
+		parenthesisToken = p.peekBehind()
+	} else {
+		firstParam := p.advance()
+		parameters = append(parameters, firstParam)
+
+		for p.match(scanner.COMMA) {
+			parameters = append(parameters, p.advance())
+		}
+
+		parenthesisToken, err = p.consume(scanner.RIGHT_PAREN, "Expected ')' after anonymous function parameters.")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before anonymous function body."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
