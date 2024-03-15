@@ -350,7 +350,12 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 
 func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 	name := scanner.Token{Type: scanner.IDENTIFIER, Lexeme: "lambda", Literal: nil, Line: expr.Parenthesis.Line}
-	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment), nil
+	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment, false), nil
+}
+
+func (i *Interpreter) VisitThisExpr(expr parser.ThisExpr) (any, error) {
+	value, _ := i.lookupVariable(expr, expr.Keyword)
+	return value, nil
 }
 
 func (i *Interpreter) VisitVariableExpr(variableExpr parser.VariableExpr) (any, error) {
@@ -395,12 +400,21 @@ func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
-	i.environment.define(stmt.Name.Lexeme, newClass(stmt))
+	className := stmt.Name.Lexeme
+	i.environment.define(className, nil)
+
+	methods := make(map[string]*loxFunction)
+	for _, method := range stmt.Methods {
+		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init")
+	}
+
+	i.environment.assign(className, newClass(stmt, methods))
+
 	return nil, nil
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
-	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment))
+	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment, false))
 	return nil, nil
 }
 

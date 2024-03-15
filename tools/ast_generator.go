@@ -94,6 +94,7 @@ func main() {
 		"Get		: Object Expr, Name scanner.Token",
 		"Call		: Callee Expr, Parenthesis scanner.Token, Arguments []Expr",
 		"Lambda		: Parenthesis scanner.Token, Parameters []scanner.Token, Body []Stmt",
+		"This 		: Keyword scanner.Token",
 		"Variable 	: Name scanner.Token",
 	})
 

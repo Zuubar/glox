@@ -660,6 +660,10 @@ func (p *Parser) primary() (Expr, error) {
 		return LiteralExpr{Value: p.peekBehind().Literal}, nil
 	}
 
+	if p.match(scanner.THIS) {
+		return ThisExpr{Keyword: p.peekBehind()}, nil
+	}
+
 	if p.match(scanner.IDENTIFIER) {
 		return VariableExpr{Name: p.peekBehind()}, nil
 	}

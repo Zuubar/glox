@@ -14,6 +14,7 @@ type VisitorExpr interface {
 	VisitGetExpr(GetExpr) (any, error)
 	VisitCallExpr(CallExpr) (any, error)
 	VisitLambdaExpr(LambdaExpr) (any, error)
+	VisitThisExpr(ThisExpr) (any, error)
 	VisitVariableExpr(VariableExpr) (any, error)
 }
 
@@ -122,6 +123,14 @@ type LambdaExpr struct {
 
 func (l LambdaExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitLambdaExpr(l)
+}
+
+type ThisExpr struct {
+	Keyword scanner.Token
+}
+
+func (t ThisExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitThisExpr(t)
 }
 
 type VariableExpr struct {

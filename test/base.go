@@ -17,7 +17,7 @@ type testCase struct {
 }
 
 func newError(t *testing.T, testCaseNum int, expected string, got string) {
-	t.Fatalf("Error at the test case №%d:\nExpected: \"%s\",\nGot \"%s\".", testCaseNum+1, expected, got)
+	t.Fatalf("Error at the test case №%d:\nExpected: %s,\nGot %s.", testCaseNum+1, fmt.Sprintf("%q", expected), fmt.Sprintf("%q", got))
 }
 
 func testExpressions(t *testing.T, testCases []testCase) {
