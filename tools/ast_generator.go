@@ -102,7 +102,7 @@ func main() {
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
 		"Var 		: Name scanner.Token, Initializer Expr",
-		"Class 		: Name scanner.Token, Methods []FunctionStmt",
+		"Class 		: Name scanner.Token, Methods []FunctionStmt, StaticMethods []FunctionStmt",
 		"Function 	: Name scanner.Token, Parameters []scanner.Token, Body []Stmt",
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",

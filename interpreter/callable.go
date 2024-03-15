@@ -21,7 +21,7 @@ func newLoxFunction(funStmt parser.FunctionStmt, closure *environment, isClassIn
 	return &loxFunction{funStmt: funStmt, closure: closure, isClassInitializer: isClassInitializer}
 }
 
-func (f *loxFunction) bind(i *loxInstance) *loxFunction {
+func (f *loxFunction) bind(i loxInstance) *loxFunction {
 	env := newEnvironment(f.closure)
 	env.define("this", i)
 	return newLoxFunction(f.funStmt, env, f.isClassInitializer)
@@ -63,42 +63,4 @@ func (f *loxFunction) call(interpreter *Interpreter, arguments []any) (any, erro
 
 func (f *loxFunction) String() string {
 	return fmt.Sprintf("<fn %s>", f.funStmt.Name.Lexeme)
-}
-
-type loxClass struct {
-	stmt    parser.ClassStmt
-	methods map[string]*loxFunction
-}
-
-func newClass(class parser.ClassStmt, methods map[string]*loxFunction) *loxClass {
-	return &loxClass{stmt: class, methods: methods}
-}
-
-func (c *loxClass) findMethod(name string) (*loxFunction, bool) {
-	fun, ok := c.methods[name]
-	return fun, ok
-}
-
-func (c *loxClass) arity() int32 {
-	initializer, ok := c.methods["init"]
-	if ok {
-		return initializer.arity()
-	}
-
-	return 0
-}
-
-func (c *loxClass) call(interpreter *Interpreter, arguments []any) (any, error) {
-	initializer, ok := c.methods["init"]
-	instance := newLoxInstance(c)
-
-	if ok {
-		return initializer.bind(instance).call(interpreter, arguments)
-	}
-
-	return instance, nil
-}
-
-func (c *loxClass) String() string {
-	return fmt.Sprintf("<class %s>", c.stmt.Name.Lexeme)
 }

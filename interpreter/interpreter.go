@@ -187,7 +187,7 @@ func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
 		return nil, err
 	}
 
-	instance, ok := object.(*loxInstance)
+	instance, ok := object.(loxInstance)
 	if !ok {
 		return nil, i.newError(expr.Name, "Only instances have properties.")
 	}
@@ -306,7 +306,7 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	instance, ok := object.(*loxInstance)
+	instance, ok := object.(loxInstance)
 	if !ok {
 		return nil, i.newError(expr.Name, "Only instances have properties.")
 	}
@@ -408,7 +408,12 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init")
 	}
 
-	i.environment.assign(className, newClass(stmt, methods))
+	staticMethods := make(map[string]*loxFunction)
+	for _, method := range stmt.StaticMethods {
+		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false)
+	}
+
+	i.environment.assign(className, newClass(stmt, methods, staticMethods))
 
 	return nil, nil
 }

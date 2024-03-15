@@ -28,7 +28,7 @@ print parser;
 	})
 }
 
-func TestClassFields(t *testing.T) {
+func TestClassProperties(t *testing.T) {
 	program := `
 class Parser {
 	checkGrammar() {
@@ -51,6 +51,37 @@ print parser.tokens_eof;
 `
 	testPrograms(t, []testCase{
 		{program, "true\nparsing... Done\n{NUMBER}{PLUS}{NUMBER}\n{NUMBER}{PLUS}{NUMBER}{EOF}\n"},
+	})
+}
+
+func TestClassStaticProperties(t *testing.T) {
+	program := `
+class Math {
+    class square(n) {
+        return n * n;
+    }
+
+    class cube(n) {
+        return Math.square(n) * n;
+    }
+
+	class circleArea(r) {
+		return Math.PI * Math.square(r); 
+	}
+}
+
+Math.PI = 3.14159265359;
+Math.superCube = fun(n) {
+    return n * Math.cube(n);
+};
+
+print Math.square(9);
+print Math.cube(9);
+print Math.superCube(9);
+print Math.circleArea(19);
+`
+	testPrograms(t, []testCase{
+		{program, "81\n729\n6561\n1134.11494794599\n"},
 	})
 }
 

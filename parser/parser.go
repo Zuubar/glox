@@ -193,22 +193,30 @@ func (p *Parser) classDecl() (Stmt, error) {
 		return nil, err
 	}
 
-	methods := make([]FunctionStmt, 0)
+	methods, staticMethods := make([]FunctionStmt, 0), make([]FunctionStmt, 0)
 	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
+		parsingStaticMethod := false
+		if p.match(scanner.CLASS) {
+			parsingStaticMethod = true
+		}
 		method, err := p.functionDecl("method")
 
 		if err != nil {
 			return nil, err
 		}
 
-		methods = append(methods, method.(FunctionStmt))
+		if parsingStaticMethod {
+			staticMethods = append(staticMethods, method.(FunctionStmt))
+		} else {
+			methods = append(methods, method.(FunctionStmt))
+		}
 	}
 
 	if _, err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after class body."); err != nil {
 		return nil, err
 	}
 
-	return ClassStmt{Name: name, Methods: methods}, nil
+	return ClassStmt{Name: name, Methods: methods, StaticMethods: staticMethods}, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -480,9 +488,6 @@ func (p *Parser) returnStmt() (Stmt, error) {
 }
 
 func (p *Parser) expression() (Expr, error) {
-	if p.match(scanner.FUN) {
-		return p.lambda()
-	}
 	return p.ternary()
 }
 
@@ -643,48 +648,6 @@ func (p *Parser) call() (Expr, error) {
 	return expr, nil
 }
 
-func (p *Parser) primary() (Expr, error) {
-	if p.match(scanner.TRUE) {
-		return LiteralExpr{Value: true}, nil
-	}
-
-	if p.match(scanner.FALSE) {
-		return LiteralExpr{Value: false}, nil
-	}
-
-	if p.match(scanner.NIL) {
-		return LiteralExpr{Value: nil}, nil
-	}
-
-	if p.match(scanner.NUMBER, scanner.STRING) {
-		return LiteralExpr{Value: p.peekBehind().Literal}, nil
-	}
-
-	if p.match(scanner.THIS) {
-		return ThisExpr{Keyword: p.peekBehind()}, nil
-	}
-
-	if p.match(scanner.IDENTIFIER) {
-		return VariableExpr{Name: p.peekBehind()}, nil
-	}
-
-	if p.match(scanner.LEFT_PAREN) {
-		expr, err := p.expression()
-
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
-			return nil, err
-		}
-
-		return GroupingExpr{Expr: expr}, nil
-	}
-
-	return nil, p.newError(p.peek(), "Expected an expression.")
-}
-
 func (p *Parser) lambda() (Expr, error) {
 	if _, err := p.consume(scanner.LEFT_PAREN, "Expected '(' before anonymous function parameters"); err != nil {
 		return nil, err
@@ -720,4 +683,50 @@ func (p *Parser) lambda() (Expr, error) {
 	}
 
 	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
+}
+
+func (p *Parser) primary() (Expr, error) {
+	if p.match(scanner.TRUE) {
+		return LiteralExpr{Value: true}, nil
+	}
+
+	if p.match(scanner.FALSE) {
+		return LiteralExpr{Value: false}, nil
+	}
+
+	if p.match(scanner.NIL) {
+		return LiteralExpr{Value: nil}, nil
+	}
+
+	if p.match(scanner.NUMBER, scanner.STRING) {
+		return LiteralExpr{Value: p.peekBehind().Literal}, nil
+	}
+
+	if p.match(scanner.THIS) {
+		return ThisExpr{Keyword: p.peekBehind()}, nil
+	}
+
+	if p.match(scanner.IDENTIFIER) {
+		return VariableExpr{Name: p.peekBehind()}, nil
+	}
+
+	if p.match(scanner.FUN) {
+		return p.lambda()
+	}
+
+	if p.match(scanner.LEFT_PAREN) {
+		expr, err := p.expression()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := p.consume(scanner.RIGHT_PAREN, "Expect ')' after expression."); err != nil {
+			return nil, err
+		}
+
+		return GroupingExpr{Expr: expr}, nil
+	}
+
+	return nil, p.newError(p.peek(), "Expected an expression.")
 }

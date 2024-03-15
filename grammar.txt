@@ -3,7 +3,7 @@ declaration -> varDecl | classDecl | functionDecl | statement ;
 
 varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 
-classDecl -> "class" IDENTIFIER "{" function* "}" ;
+classDecl -> "class" IDENTIFIER "{" ("class"? function)* "}" ;
 
 functionDecl -> "fun" function ;
 function -> IDENTIFIER "(" parameters? ")" block ;
@@ -19,9 +19,7 @@ breakStmt -> "break;" ;
 continueStmt -> "continue;" ;
 returnStmt -> "return;" ;
 
-expression -> ternary | lambda ;
-
-lambda -> "fun" "(" parameters? ")" block ;
+expression -> ternary ;
 
 ternary -> assignment "?" ternary ":" ternary | assignment ;
 assignment -> (call ".") IDENTIFIER "=" assignment | logic_or ;
@@ -37,4 +35,6 @@ unary -> ( "!" | "-" ) unary | call ;
 call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 arguments -> expression ("," expression) ;
 
-primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | lambda ;
+
+lambda -> "fun" "(" parameters? ")" block ;

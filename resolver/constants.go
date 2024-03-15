@@ -3,6 +3,7 @@ package resolver
 const (
 	functionTypeFunction         = "FUNCTION"
 	functionTypeMethod           = "METHOD"
+	functionTypeStaticMethod     = "STATIC_METHOD"
 	functionTypeClassInitializer = "CLASS_INITIALIZER"
 	functionTypeNone             = "NONE"
 

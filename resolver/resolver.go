@@ -249,6 +249,11 @@ func (r *Resolver) VisitThisExpr(expr parser.ThisExpr) (any, error) {
 	if r.currentClass == classTypeNone {
 		return nil, r.newError(expr.Keyword, "Can't use 'this' outside of class.")
 	}
+
+	if r.currentFunction == functionTypeStaticMethod {
+		return nil, r.newError(expr.Keyword, "Can't use 'this' inside static method, consider using 'className.property'.")
+	}
+
 	return r.resolveLocal(expr, expr.Keyword, true)
 }
 
@@ -303,7 +308,7 @@ func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	}()
 
 	lastScope := *r.peekScope()
-	lastScope["this"] = &variable{}
+	lastScope["this"] = &variable{state: variableStateRead}
 
 	for _, method := range stmt.Methods {
 		funcType := functionTypeMethod
@@ -312,6 +317,12 @@ func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		}
 
 		if _, err := r.resolveFunctions(method, funcType); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, method := range stmt.StaticMethods {
+		if _, err := r.resolveFunctions(method, functionTypeStaticMethod); err != nil {
 			return nil, err
 		}
 	}

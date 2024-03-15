@@ -47,8 +47,9 @@ func (v VarStmt) Accept(visitor VisitorStmt) (any, error) {
 }
 
 type ClassStmt struct {
-	Name    scanner.Token
-	Methods []FunctionStmt
+	Name          scanner.Token
+	Methods       []FunctionStmt
+	StaticMethods []FunctionStmt
 }
 
 func (c ClassStmt) Accept(visitor VisitorStmt) (any, error) {
