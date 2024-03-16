@@ -1,7 +1,15 @@
 program -> declaration* EOF
-declaration -> varDecl | statement | functionDecl ;
+declaration -> varDecl | classDecl | functionDecl | statement ;
 
 varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
+
+classDecl -> "class" IDENTIFIER "{" (method | getterMethod)* "}" ;
+method -> "class"? function ;
+getterMethod -> IDENTIFIER block ;
+
+functionDecl -> "fun" function ;
+function -> IDENTIFIER "(" parameters? ")" block ;
+parameters -> IDENTIFIER ("," IDENTIFIER) ;
 
 statement -> expressionStmt | printStmt | block | ifStmt | whileStmt | forStmt | breakStmt | continueStmt | returnStmt ;
 expressionStmt -> expression ";" ;
@@ -13,12 +21,10 @@ breakStmt -> "break;" ;
 continueStmt -> "continue;" ;
 returnStmt -> "return;" ;
 
-functionDecl -> "fun" IDENTIFIER "(" parameters? ")" block ;
-parameters -> IDENTIFIER ("," IDENTIFIER) ;
-
 expression -> ternary ;
+
 ternary -> assignment "?" ternary ":" ternary | assignment ;
-assignment -> IDENTIFIER "=" assignment | logic_or ;
+assignment -> (call ".") IDENTIFIER "=" assignment | logic_or ;
 logic_or -> logic_and ( "or" logic_and )* ;
 logic_and -> equality ( "and" equality )* ;
 equality -> comparison ( ( "!=" | "==" ) comparison)* ;
@@ -28,8 +34,9 @@ term -> factor ( ( "+" | "-" ) factor)* ;
 factor -> unary ( ( "*" | "/" ) unary)* ;
 unary -> ( "!" | "-" ) unary | call ;
 
-call -> lambda ( "(" arguments? ")" )* ;
-lambda -> "fun" "(" parameters? ")" block | primary ;
+call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 arguments -> expression ("," expression) ;
 
-primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | lambda ;
+
+lambda -> "fun" "(" parameters? ")" block ;

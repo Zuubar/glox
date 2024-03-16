@@ -17,11 +17,12 @@ type Resolver struct {
 	scopes          []map[string]*variable
 	warnings        []*Warning
 	currentFunction string
+	currentClass    string
 	loopLevel       int
 }
 
 func New(interpreter *interpreter.Interpreter) *Resolver {
-	return &Resolver{interpreter: interpreter, scopes: make([]map[string]*variable, 0), warnings: make([]*Warning, 0), currentFunction: functionTypeNone, loopLevel: 0}
+	return &Resolver{interpreter: interpreter, scopes: make([]map[string]*variable, 0), warnings: make([]*Warning, 0), currentFunction: functionTypeNone, currentClass: classTypeNone, loopLevel: 0}
 }
 
 func (r *Resolver) Resolve(stmt []parser.Stmt) (any, error) {
@@ -141,11 +142,13 @@ func (r *Resolver) resolveFunctions(function any, functionType string) (any, err
 		r.endScope()
 	}()
 
-	for _, parameter := range parameters {
-		if err := r.declare(parameter); err != nil {
-			return nil, err
+	if parameters != nil {
+		for _, parameter := range parameters {
+			if err := r.declare(parameter); err != nil {
+				return nil, err
+			}
+			r.define(parameter)
 		}
-		r.define(parameter)
 	}
 
 	return r.resolveStmts(body)
@@ -194,6 +197,14 @@ func (r *Resolver) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
 	return r.resolveExpr(expr.Right)
 }
 
+func (r *Resolver) VisitSetExpr(expr parser.SetExpr) (any, error) {
+	if _, err := r.resolveExpr(expr.Object); err != nil {
+		return nil, err
+	}
+
+	return r.resolveExpr(expr.Value)
+}
+
 func (r *Resolver) VisitBinaryExpr(expr parser.BinaryExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Left); err != nil {
 		return nil, err
@@ -214,6 +225,10 @@ func (r *Resolver) VisitUnaryExpr(expr parser.UnaryExpr) (any, error) {
 	return r.resolveExpr(expr.Right)
 }
 
+func (r *Resolver) VisitGetExpr(expr parser.GetExpr) (any, error) {
+	return r.resolveExpr(expr.Object)
+}
+
 func (r *Resolver) VisitCallExpr(expr parser.CallExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Callee); err != nil {
 		return nil, err
@@ -230,6 +245,18 @@ func (r *Resolver) VisitCallExpr(expr parser.CallExpr) (any, error) {
 
 func (r *Resolver) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 	return r.resolveFunctions(expr, functionTypeFunction)
+}
+
+func (r *Resolver) VisitThisExpr(expr parser.ThisExpr) (any, error) {
+	if r.currentClass == classTypeNone {
+		return nil, r.newError(expr.Keyword, "Can't use 'this' outside of class.")
+	}
+
+	if r.currentFunction == functionTypeStaticMethod {
+		return nil, r.newError(expr.Keyword, "Can't use 'this' inside static method, consider using 'className.property'.")
+	}
+
+	return r.resolveLocal(expr, expr.Keyword, true)
 }
 
 func (r *Resolver) VisitVariableExpr(expr parser.VariableExpr) (any, error) {
@@ -263,6 +290,44 @@ func (r *Resolver) VisitVarStmt(stmt parser.VarStmt) (any, error) {
 		}
 	}
 	r.define(stmt.Name)
+
+	return nil, nil
+}
+
+func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
+	currentClass := r.currentClass
+
+	r.currentClass = classTypeClass
+	if err := r.declare(stmt.Name); err != nil {
+		return nil, err
+	}
+	r.define(stmt.Name)
+
+	r.beginScope()
+	defer func() {
+		r.endScope()
+		r.currentClass = currentClass
+	}()
+
+	lastScope := *r.peekScope()
+	lastScope["this"] = &variable{state: variableStateRead}
+
+	for _, method := range stmt.Methods {
+		funcType := functionTypeMethod
+		if method.Name.Lexeme == "init" {
+			funcType = functionTypeClassInitializer
+		}
+
+		if _, err := r.resolveFunctions(method, funcType); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, method := range stmt.StaticMethods {
+		if _, err := r.resolveFunctions(method, functionTypeStaticMethod); err != nil {
+			return nil, err
+		}
+	}
 
 	return nil, nil
 }
@@ -359,6 +424,10 @@ func (r *Resolver) VisitReturnStmt(stmt parser.ReturnStmt) (any, error) {
 	}
 
 	if stmt.Expr != nil {
+		if r.currentFunction == functionTypeClassInitializer {
+			return nil, r.newError(stmt.Keyword, "Can't return a value from class initializer.")
+		}
+
 		return r.resolveExpr(stmt.Expr)
 	}
 

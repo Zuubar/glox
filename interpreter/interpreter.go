@@ -1,6 +1,9 @@
 package interpreter
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"glox/parser"
@@ -12,7 +15,7 @@ import (
 type Interpreter struct {
 	globalEnvironment *environment
 	environment       *environment
-	locals            map[parser.Expr]int32
+	locals            map[string]int32
 }
 
 func New() *Interpreter {
@@ -22,7 +25,7 @@ func New() *Interpreter {
 	globalEnv.define("clock", &nativeClock{})
 	globalEnv.define("str", &nativeStringify{})
 
-	return &Interpreter{globalEnvironment: globalEnv, environment: env, locals: make(map[parser.Expr]int32)}
+	return &Interpreter{globalEnvironment: globalEnv, environment: env, locals: make(map[string]int32)}
 }
 
 func (i *Interpreter) newError(token scanner.Token, message string) *Error {
@@ -94,8 +97,19 @@ func (i *Interpreter) executeBlock(statements []parser.Stmt, env *environment) (
 	return nil, nil
 }
 
+func (i *Interpreter) encodeExpression(expr parser.Expr) string {
+	serializedData, err := json.Marshal(expr)
+	if err != nil {
+		panic("Could not encode expression.")
+	}
+	hasher := md5.New()
+	hasher.Write(serializedData)
+
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
 func (i *Interpreter) lookupVariable(expr parser.Expr, name scanner.Token) (any, bool) {
-	depth, ok := i.locals[expr]
+	depth, ok := i.locals[i.encodeExpression(expr)]
 	if !ok {
 		return i.globalEnvironment.get(name.Lexeme)
 	}
@@ -104,7 +118,7 @@ func (i *Interpreter) lookupVariable(expr parser.Expr, name scanner.Token) (any,
 }
 
 func (i *Interpreter) Resolve(expr parser.Expr, depth int32) {
-	i.locals[expr] = depth
+	i.locals[i.encodeExpression(expr)] = depth
 }
 
 func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) (any, error) {
@@ -128,7 +142,7 @@ func (i *Interpreter) VisitAssignmentExpr(assignment parser.AssignmentExpr) (any
 	}
 
 	assigned := false
-	depth, ok := i.locals[assignment]
+	depth, ok := i.locals[i.encodeExpression(assignment)]
 
 	if !ok {
 		assigned = i.globalEnvironment.assign(token.Lexeme, value)
@@ -160,6 +174,27 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
 	}
 
 	return i.evaluate(expr.Right)
+}
+
+func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	instance, ok := object.(loxInstance)
+	if !ok {
+		return nil, i.newError(expr.Name, "Only instances have properties.")
+	}
+
+	instance.set(expr.Name, value)
+
+	return value, nil
 }
 
 func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) (any, error) {
@@ -266,13 +301,47 @@ func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) (any, error) {
 	return nil, i.newError(unary.Operator, "Operand must be a number.")
 }
 
+func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+	instance, ok := object.(loxInstance)
+	if !ok {
+		return nil, i.newError(expr.Name, "Only instances have properties.")
+	}
+
+	value, err := instance.get(expr.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	fun, ok := value.(*loxFunction)
+
+	if !ok || !fun.isClassGetter {
+		return value, nil
+	}
+
+	getterBody := fun.funStmt.Body
+	if len(getterBody) == 0 {
+		return nil, i.newError(fun.funStmt.Name, "Class getters should not have empty bodies.")
+	}
+
+	_, ok = getterBody[len(getterBody)-1].(parser.ReturnStmt)
+	if !ok {
+		return nil, i.newError(fun.funStmt.Name, "Class getters should return a value.")
+	}
+
+	return fun.call(i, make([]any, 0))
+}
+
 func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 	callee, err := i.evaluate(expr.Callee)
 	if err != nil {
 		return nil, err
 	}
 
-	fun, ok := callee.(Callable)
+	fun, ok := callee.(callable)
 
 	if !ok {
 		return nil, i.newError(expr.Parenthesis, "Non callable object, can only call functions and classes.")
@@ -297,11 +366,17 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 
 func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 	name := scanner.Token{Type: scanner.IDENTIFIER, Lexeme: "lambda", Literal: nil, Line: expr.Parenthesis.Line}
-	return newFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment), nil
+	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment, false, false), nil
+}
+
+func (i *Interpreter) VisitThisExpr(expr parser.ThisExpr) (any, error) {
+	value, _ := i.lookupVariable(expr, expr.Keyword)
+	return value, nil
 }
 
 func (i *Interpreter) VisitVariableExpr(variableExpr parser.VariableExpr) (any, error) {
-	value, ok := i.lookupVariable(variableExpr, variableExpr.Name)
+	var lookupExpr parser.Expr = variableExpr
+	value, ok := i.lookupVariable(lookupExpr, variableExpr.Name)
 	if !ok {
 		return nil, i.newError(variableExpr.Name, fmt.Sprintf("Undefined variable '%s'.", variableExpr.Name.Lexeme))
 	}
@@ -340,8 +415,27 @@ func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) (any, error) {
 	return nil, nil
 }
 
+func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
+	className := stmt.Name.Lexeme
+	i.environment.define(className, nil)
+
+	methods := make(map[string]*loxFunction)
+	for _, method := range stmt.Methods {
+		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init", method.Parameters == nil)
+	}
+
+	staticMethods := make(map[string]*loxFunction)
+	for _, method := range stmt.StaticMethods {
+		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false, method.Parameters == nil)
+	}
+
+	i.environment.assign(className, newClass(stmt, methods, staticMethods))
+
+	return nil, nil
+}
+
 func (i *Interpreter) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
-	i.environment.define(stmt.Name.Lexeme, newFunction(stmt, i.environment))
+	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment, false, false))
 	return nil, nil
 }
 

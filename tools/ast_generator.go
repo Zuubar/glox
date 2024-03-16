@@ -15,7 +15,7 @@ func writeStringLn(file *os.File, str string) {
 }
 
 func generateVisitor(file *os.File, baseName string, types []string) {
-	writeStringLn(file, "package [name]")
+	writeStringLn(file, "package parser")
 	writeStringLn(file, "")
 	writeStringLn(file, fmt.Sprintf("type Visitor%s interface {", baseName))
 
@@ -84,28 +84,32 @@ func main() {
 
 	defineAst(outputDir, "Expr", []string{
 		"Ternary  	: Condition Expr, Left Expr, Right Expr",
-		"Assignment : Name Token, Value Expr",
-		"Logical	: Left Expr, Operator Token, Right Expr",
-		"Binary		: Left Expr, Operator Token, Right Expr",
+		"Assignment : Name scanner.Token, Value Expr",
+		"Logical	: Left Expr, Operator scanner.Token, Right Expr",
+		"Set		: Object Expr, Name scanner.Token, Value Expr",
+		"Binary		: Left Expr, Operator scanner.Token, Right Expr",
 		"Grouping	: Expr Expr",
 		"Literal	: Value any",
-		"Unary		: Operator Token, Right Expr",
-		"Call		: Callee Expr, Parenthesis Token, Arguments []Expr",
-		"Lambda		: Parenthesis Token, Parameters []Token, Body []Stmt",
-		"Variable 	: Name Token",
+		"Unary		: Operator scanner.Token, Right Expr",
+		"Get		: Object Expr, Name scanner.Token",
+		"Call		: Callee Expr, Parenthesis scanner.Token, Arguments []Expr",
+		"Lambda		: Parenthesis scanner.Token, Parameters []scanner.Token, Body []Stmt",
+		"This 		: Keyword scanner.Token",
+		"Variable 	: Name scanner.Token",
 	})
 
 	defineAst(outputDir, "Stmt", []string{
 		"Expression : Expression Expr",
 		"Print      : Expression Expr",
-		"Var 		: Name Token, Initializer Expr",
-		"Function 	: Name Token, Parameters []Token, Body []Stmt",
+		"Var 		: Name scanner.Token, Initializer Expr",
+		"Class 		: Name scanner.Token, Methods []FunctionStmt, StaticMethods []FunctionStmt",
+		"Function 	: Name scanner.Token, Parameters []scanner.Token, Body []Stmt",
 		"Block 		: Declarations []Stmt",
 		"If 		: Expression Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While 		: Condition Expr, Body Stmt",
 		"For 		: Initializer Stmt, Condition Expr, Increment Stmt, Body Stmt",
-		"Break 		: Keyword Token",
-		"Continue 	: Keyword Token",
-		"Return 	: Keyword Token, Expr Expr",
+		"Break 		: Keyword scanner.Token",
+		"Continue 	: Keyword scanner.Token",
+		"Return 	: Keyword scanner.Token, Expr Expr",
 	})
 }
