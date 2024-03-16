@@ -16,3 +16,6 @@
 
 # Go workspace file
 go.work
+
+# test .lox files
+test*.lox

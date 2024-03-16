@@ -85,6 +85,38 @@ print Math.circleArea(19);
 	})
 }
 
+func TestClassGetters(t *testing.T) {
+	program := `
+class Circle {
+	init(radius) {
+		this.radius = radius;
+	}
+
+	square {
+		print "Impossible";
+		return nil;
+	}
+
+	class pi {
+		return 3.141592653;
+	}
+
+ 	area {
+		return Circle.pi * this.radius * this.radius;
+	}
+}
+
+var circle = Circle(4);
+print Circle.pi;
+print circle.area;
+print circle.square;
+
+`
+	testPrograms(t, []testCase{
+		{program, "3.141592653\n50.265482448\nImpossible\nnil\n"},
+	})
+}
+
 func TestClassThis(t *testing.T) {
 	program1 := `
 class Person {

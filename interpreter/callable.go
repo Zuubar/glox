@@ -15,16 +15,22 @@ type loxFunction struct {
 	funStmt            parser.FunctionStmt
 	closure            *environment
 	isClassInitializer bool
+	isClassGetter      bool
 }
 
-func newLoxFunction(funStmt parser.FunctionStmt, closure *environment, isClassInitializer bool) *loxFunction {
-	return &loxFunction{funStmt: funStmt, closure: closure, isClassInitializer: isClassInitializer}
+func newLoxFunction(funStmt parser.FunctionStmt, closure *environment, isClassInitializer bool, isClassGetter bool) *loxFunction {
+	return &loxFunction{
+		funStmt:            funStmt,
+		closure:            closure,
+		isClassInitializer: isClassInitializer,
+		isClassGetter:      isClassGetter,
+	}
 }
 
 func (f *loxFunction) bind(i loxInstance) *loxFunction {
 	env := newEnvironment(f.closure)
 	env.define("this", i)
-	return newLoxFunction(f.funStmt, env, f.isClassInitializer)
+	return newLoxFunction(f.funStmt, env, f.isClassInitializer, f.isClassGetter)
 }
 
 func (f *loxFunction) arity() int32 {

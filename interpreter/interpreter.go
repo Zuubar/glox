@@ -316,7 +316,23 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 		return nil, err
 	}
 
-	return value, nil
+	fun, ok := value.(*loxFunction)
+
+	if !ok || !fun.isClassGetter {
+		return value, nil
+	}
+
+	getterBody := fun.funStmt.Body
+	if len(getterBody) == 0 {
+		return nil, i.newError(fun.funStmt.Name, "Class getters should not have empty bodies.")
+	}
+
+	_, ok = getterBody[len(getterBody)-1].(parser.ReturnStmt)
+	if !ok {
+		return nil, i.newError(fun.funStmt.Name, "Class getters should return a value.")
+	}
+
+	return fun.call(i, make([]any, 0))
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
@@ -350,7 +366,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 
 func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 	name := scanner.Token{Type: scanner.IDENTIFIER, Lexeme: "lambda", Literal: nil, Line: expr.Parenthesis.Line}
-	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment, false), nil
+	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment, false, false), nil
 }
 
 func (i *Interpreter) VisitThisExpr(expr parser.ThisExpr) (any, error) {
@@ -405,12 +421,12 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 
 	methods := make(map[string]*loxFunction)
 	for _, method := range stmt.Methods {
-		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init")
+		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init", method.Parameters == nil)
 	}
 
 	staticMethods := make(map[string]*loxFunction)
 	for _, method := range stmt.StaticMethods {
-		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false)
+		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false, method.Parameters == nil)
 	}
 
 	i.environment.assign(className, newClass(stmt, methods, staticMethods))
@@ -419,7 +435,7 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
-	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment, false))
+	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment, false, false))
 	return nil, nil
 }
 

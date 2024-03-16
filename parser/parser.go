@@ -182,6 +182,45 @@ func (p *Parser) varDecl() (Stmt, error) {
 	return varDecl, nil
 }
 
+func (p *Parser) methodDecl() (Stmt, error) {
+	name, err := p.consume(scanner.IDENTIFIER, fmt.Sprintf("Expteced method or getter name."))
+	if err != nil {
+		return nil, err
+	}
+
+	var parameters []scanner.Token = nil
+
+	if p.match(scanner.LEFT_PAREN) {
+		parameters = make([]scanner.Token, 0)
+		if !p.check(scanner.RIGHT_PAREN) {
+			parameters = append(parameters, p.advance())
+
+			for p.match(scanner.COMMA) {
+				if len(parameters) >= 255 {
+					return nil, p.newError(p.peek(), "Can't have more than 255 parameters.")
+				}
+
+				parameters = append(parameters, p.advance())
+			}
+		}
+
+		if _, err := p.consume(scanner.RIGHT_PAREN, "Expected ')' after parameters."); err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, fmt.Sprintf("Expected '{' before method or getter body.")); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return FunctionStmt{Name: name, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
+}
+
 func (p *Parser) classDecl() (Stmt, error) {
 	name, err := p.consume(scanner.IDENTIFIER, "Expected class name.")
 
@@ -195,11 +234,9 @@ func (p *Parser) classDecl() (Stmt, error) {
 
 	methods, staticMethods := make([]FunctionStmt, 0), make([]FunctionStmt, 0)
 	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
-		parsingStaticMethod := false
-		if p.match(scanner.CLASS) {
-			parsingStaticMethod = true
-		}
-		method, err := p.functionDecl("method")
+		parsingStaticMethod := p.match(scanner.CLASS)
+
+		method, err := p.methodDecl()
 
 		if err != nil {
 			return nil, err

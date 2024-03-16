@@ -142,11 +142,13 @@ func (r *Resolver) resolveFunctions(function any, functionType string) (any, err
 		r.endScope()
 	}()
 
-	for _, parameter := range parameters {
-		if err := r.declare(parameter); err != nil {
-			return nil, err
+	if parameters != nil {
+		for _, parameter := range parameters {
+			if err := r.declare(parameter); err != nil {
+				return nil, err
+			}
+			r.define(parameter)
 		}
-		r.define(parameter)
 	}
 
 	return r.resolveStmts(body)
