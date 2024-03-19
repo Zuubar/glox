@@ -6,25 +6,50 @@ import (
 	"glox/scanner"
 )
 
-type loxInstance interface {
+type loxAbstractInstance interface {
 	get(name scanner.Token) (any, error)
 	set(name scanner.Token, value any)
 }
 
-type loxClass struct {
+type loxMetaClass struct {
 	stmt          parser.ClassStmt
 	methods       map[string]*loxFunction
 	staticMethods map[string]*loxFunction
-	staticFields  map[string]any
 }
 
-func newClass(class parser.ClassStmt, methods map[string]*loxFunction, staticMethods map[string]*loxFunction) *loxClass {
-	return &loxClass{
+func newMetaClass(class parser.ClassStmt, methods map[string]*loxFunction, staticMethods map[string]*loxFunction) *loxMetaClass {
+	return &loxMetaClass{
 		stmt:          class,
 		methods:       methods,
 		staticMethods: staticMethods,
-		staticFields:  make(map[string]any),
 	}
+}
+
+func (m *loxMetaClass) NewClass(superclass *loxClass) *loxClass {
+	return &loxClass{
+		metaClass:    m,
+		superclass:   superclass,
+		staticFields: make(map[string]any),
+	}
+}
+
+type loxClass struct {
+	metaClass    *loxMetaClass
+	superclass   *loxClass
+	staticFields map[string]any
+}
+
+func (c *loxClass) findMethod(name string) (*loxFunction, bool) {
+	fun, ok := c.metaClass.methods[name]
+	if ok {
+		return fun, true
+	}
+
+	if c.superclass != nil {
+		return c.superclass.findMethod(name)
+	}
+
+	return nil, false
 }
 
 func (c *loxClass) get(name scanner.Token) (any, error) {
@@ -33,9 +58,13 @@ func (c *loxClass) get(name scanner.Token) (any, error) {
 		return field, nil
 	}
 
-	staticMethod, ok := c.staticMethods[name.Lexeme]
+	staticMethod, ok := c.metaClass.staticMethods[name.Lexeme]
 	if ok {
 		return staticMethod, nil
+	}
+
+	if c.superclass != nil {
+		return c.superclass.get(name)
 	}
 
 	return nil, &Error{Token: name, Message: fmt.Sprintf("Undefined property '%s'.", name.Lexeme)}
@@ -45,13 +74,8 @@ func (c *loxClass) set(name scanner.Token, value any) {
 	c.staticFields[name.Lexeme] = value
 }
 
-func (c *loxClass) findMethod(name string) (*loxFunction, bool) {
-	fun, ok := c.methods[name]
-	return fun, ok
-}
-
 func (c *loxClass) arity() int32 {
-	initializer, ok := c.methods["init"]
+	initializer, ok := c.metaClass.methods["init"]
 	if ok {
 		return initializer.arity()
 	}
@@ -60,8 +84,8 @@ func (c *loxClass) arity() int32 {
 }
 
 func (c *loxClass) call(interpreter *Interpreter, arguments []any) (any, error) {
-	initializer, ok := c.methods["init"]
-	instance := newLoxInstance(c)
+	initializer, ok := c.metaClass.methods["init"]
+	instance := &loxInstance{class: c, fields: make(map[string]any)}
 
 	if ok {
 		return initializer.bind(instance).call(interpreter, arguments)
@@ -71,19 +95,15 @@ func (c *loxClass) call(interpreter *Interpreter, arguments []any) (any, error) 
 }
 
 func (c *loxClass) String() string {
-	return fmt.Sprintf("<class %s>", c.stmt.Name.Lexeme)
+	return fmt.Sprintf("<class %s>", c.metaClass.stmt.Name.Lexeme)
 }
 
-type loxClassInstance struct {
+type loxInstance struct {
 	class  *loxClass
 	fields map[string]any
 }
 
-func newLoxInstance(class *loxClass) *loxClassInstance {
-	return &loxClassInstance{class: class, fields: make(map[string]any)}
-}
-
-func (i *loxClassInstance) get(name scanner.Token) (any, error) {
+func (i *loxInstance) get(name scanner.Token) (any, error) {
 	field, ok := i.fields[name.Lexeme]
 	if ok {
 		return field, nil
@@ -97,10 +117,10 @@ func (i *loxClassInstance) get(name scanner.Token) (any, error) {
 	return nil, &Error{Token: name, Message: fmt.Sprintf("Undefined property '%s'.", name.Lexeme)}
 }
 
-func (i *loxClassInstance) set(name scanner.Token, value any) {
+func (i *loxInstance) set(name scanner.Token, value any) {
 	i.fields[name.Lexeme] = value
 }
 
-func (i *loxClassInstance) String() string {
-	return fmt.Sprintf("<%s instance>", i.class.stmt.Name.Lexeme)
+func (i *loxInstance) String() string {
+	return fmt.Sprintf("<%s instance>", i.class.metaClass.stmt.Name.Lexeme)
 }

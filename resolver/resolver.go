@@ -5,6 +5,7 @@ import (
 	"glox/interpreter"
 	"glox/parser"
 	"glox/scanner"
+	"reflect"
 )
 
 type variable struct {
@@ -205,6 +206,16 @@ func (r *Resolver) VisitSetExpr(expr parser.SetExpr) (any, error) {
 	return r.resolveExpr(expr.Value)
 }
 
+func (r *Resolver) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
+	if r.currentClass == classTypeNone {
+		return nil, r.newError(expr.Keyword, "Can't use 'super' outside of a class.")
+	} else if r.currentClass != classTypeSubclass {
+		return nil, r.newError(expr.Keyword, "Can't use 'super' in a class with no superclass.")
+	}
+
+	return r.resolveLocal(expr, expr.Keyword, true)
+}
+
 func (r *Resolver) VisitBinaryExpr(expr parser.BinaryExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Left); err != nil {
 		return nil, err
@@ -296,12 +307,28 @@ func (r *Resolver) VisitVarStmt(stmt parser.VarStmt) (any, error) {
 
 func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	currentClass := r.currentClass
-
 	r.currentClass = classTypeClass
+
 	if err := r.declare(stmt.Name); err != nil {
 		return nil, err
 	}
 	r.define(stmt.Name)
+
+	superclassExists := !reflect.ValueOf(stmt.Superclass).IsZero()
+
+	if superclassExists {
+		r.currentClass = classTypeSubclass
+		if stmt.Name.Lexeme == stmt.Superclass.Name.Lexeme {
+			return nil, r.newError(stmt.Superclass.Name, "A class can't inherit from itself.")
+		}
+
+		if _, err := r.resolveExpr(stmt.Superclass); err != nil {
+			return nil, err
+		}
+		r.beginScope()
+		lastScope := *r.peekScope()
+		lastScope["super"] = &variable{state: variableStateRead}
+	}
 
 	r.beginScope()
 	defer func() {
@@ -327,6 +354,10 @@ func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		if _, err := r.resolveFunctions(method, functionTypeStaticMethod); err != nil {
 			return nil, err
 		}
+	}
+
+	if superclassExists {
+		r.endScope()
 	}
 
 	return nil, nil

@@ -3,7 +3,7 @@ declaration -> varDecl | classDecl | functionDecl | statement ;
 
 varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 
-classDecl -> "class" IDENTIFIER "{" (method | getterMethod)* "}" ;
+classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" (method | getterMethod)* "}" ;
 method -> "class"? function ;
 getterMethod -> IDENTIFIER block ;
 
@@ -37,6 +37,6 @@ unary -> ( "!" | "-" ) unary | call ;
 call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 arguments -> expression ("," expression) ;
 
-primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | lambda ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | lambda | "super" "." IDENTIFIER ;
 
 lambda -> "fun" "(" parameters? ")" block ;

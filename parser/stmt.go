@@ -48,6 +48,7 @@ func (v VarStmt) Accept(visitor VisitorStmt) (any, error) {
 
 type ClassStmt struct {
 	Name          scanner.Token
+	Superclass    VariableExpr
 	Methods       []FunctionStmt
 	StaticMethods []FunctionStmt
 }

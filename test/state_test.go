@@ -29,7 +29,7 @@ print v;
 print v;
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program1, "global\nglobal\nglobal\nglobal\n"},
 		{program2, "global\nglobal\ninner\ninner\n"},
 	})
@@ -45,7 +45,7 @@ v = v * 2;
 print v;
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program, "2\n4\n8\n"},
 	})
 }
@@ -85,7 +85,7 @@ print b;
 print c;
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program1, "60\n0\n"},
 		{program2, "inner a\nouter b\nglobal c\nouter a\nouter b\nglobal c\nglobal a\nglobal b\nglobal c\n"},
 	})

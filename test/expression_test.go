@@ -5,7 +5,7 @@ import (
 )
 
 func TestArithmeticExpressions(t *testing.T) {
-	testExpressions(t, []testCase{
+	assertExpressions(t, []testCase{
 		{"5 + 5", "10"},
 		{"5 - 3", "2"},
 		{"-3", "-3"},
@@ -20,7 +20,7 @@ func TestArithmeticExpressions(t *testing.T) {
 }
 
 func TestBooleanExpressions(t *testing.T) {
-	testExpressions(t, []testCase{
+	assertExpressions(t, []testCase{
 		{"5 > 5", "false"},
 		{"5 >= 5", "true"},
 		{"7 > 5", "true"},

@@ -43,7 +43,7 @@ for (var i = 0; i < 5; i = i + 1) {
     neg(-1);
 }
 `
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program1, "20\n35\n"},
 		{program2, "5\n"},
 		{program3, "32\n"},

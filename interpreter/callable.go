@@ -27,7 +27,7 @@ func newLoxFunction(funStmt parser.FunctionStmt, closure *environment, isClassIn
 	}
 }
 
-func (f *loxFunction) bind(i loxInstance) *loxFunction {
+func (f *loxFunction) bind(i loxAbstractInstance) *loxFunction {
 	env := newEnvironment(f.closure)
 	env.define("this", i)
 	return newLoxFunction(f.funStmt, env, f.isClassInitializer, f.isClassGetter)

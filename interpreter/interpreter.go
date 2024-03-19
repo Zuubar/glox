@@ -187,7 +187,7 @@ func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
 		return nil, err
 	}
 
-	instance, ok := object.(loxInstance)
+	instance, ok := object.(loxAbstractInstance)
 	if !ok {
 		return nil, i.newError(expr.Name, "Only instances have properties.")
 	}
@@ -195,6 +195,40 @@ func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
 	instance.set(expr.Name, value)
 
 	return value, nil
+}
+
+func (i *Interpreter) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
+	distance := i.locals[i.encodeExpression(expr)]
+	super, _ := i.environment.getAt("super", distance)
+	this, instance := i.environment.getAt("this", distance-1)
+
+	superclass := super.(*loxClass)
+
+	if instance {
+		method, ok := superclass.findMethod(expr.Method.Lexeme)
+
+		if ok {
+			object := this.(loxAbstractInstance)
+
+			if method.isClassGetter {
+				return method.bind(object).call(i, make([]any, 0))
+			}
+
+			return method.bind(object), nil
+		}
+	}
+
+	staticMethod, err := superclass.get(expr.Method)
+
+	if err != nil {
+		return nil, i.newError(expr.Method, fmt.Sprintf("Undefined property '%s'.", expr.Method.Lexeme))
+	}
+
+	if staticMethod, ok := staticMethod.(*loxFunction); ok && staticMethod.isClassGetter {
+		return staticMethod.call(i, make([]any, 0))
+	}
+
+	return staticMethod, nil
 }
 
 func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) (any, error) {
@@ -306,7 +340,7 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	instance, ok := object.(loxInstance)
+	instance, ok := object.(loxAbstractInstance)
 	if !ok {
 		return nil, i.newError(expr.Name, "Only instances have properties.")
 	}
@@ -419,6 +453,26 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	className := stmt.Name.Lexeme
 	i.environment.define(className, nil)
 
+	superclassExists := !reflect.ValueOf(stmt.Superclass).IsZero()
+	var superclass *loxClass
+
+	if superclassExists {
+		result, err := i.evaluate(stmt.Superclass)
+
+		if err != nil {
+			return nil, err
+		}
+		ok := false
+
+		superclass, ok = result.(*loxClass)
+		if !ok {
+			return nil, i.newError(stmt.Name, "Superclass must be a class.")
+		}
+
+		i.environment = newEnvironment(i.environment)
+		i.environment.define("super", superclass)
+	}
+
 	methods := make(map[string]*loxFunction)
 	for _, method := range stmt.Methods {
 		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init", method.Parameters == nil)
@@ -429,7 +483,11 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false, method.Parameters == nil)
 	}
 
-	i.environment.assign(className, newClass(stmt, methods, staticMethods))
+	if superclassExists {
+		i.environment = i.environment.enclosing
+	}
+
+	i.environment.assign(className, newMetaClass(stmt, methods, staticMethods).NewClass(superclass))
 
 	return nil, nil
 }
