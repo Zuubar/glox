@@ -16,7 +16,7 @@ var a = "global";
   print a;
 }
 `
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program, "global\nglobal\nblock\n"},
 	})
 }

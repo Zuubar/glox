@@ -20,7 +20,7 @@ func newError(t *testing.T, testCaseNum int, expected string, got string) {
 	t.Fatalf("Error at the test case №%d:\nExpected: %s,\nGot %s.", testCaseNum+1, fmt.Sprintf("%q", expected), fmt.Sprintf("%q", got))
 }
 
-func testExpressions(t *testing.T, testCases []testCase) {
+func assertExpressions(t *testing.T, testCases []testCase) {
 	for idx, tt := range testCases {
 		result, err := interpret(fmt.Sprintf("print (%s);", tt.source))
 
@@ -38,7 +38,7 @@ func testExpressions(t *testing.T, testCases []testCase) {
 	}
 }
 
-func testPrograms(t *testing.T, testCases []testCase) {
+func assertPrograms(t *testing.T, testCases []testCase) {
 	for idx, tt := range testCases {
 		result, err := interpret(tt.source)
 

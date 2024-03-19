@@ -228,6 +228,17 @@ func (p *Parser) classDecl() (Stmt, error) {
 		return nil, err
 	}
 
+	var superclass VariableExpr
+
+	if p.match(scanner.LESS) {
+		name, err := p.consume(scanner.IDENTIFIER, "Excepted superclass name.")
+		if err != nil {
+			return nil, nil
+		}
+
+		superclass.Name = name
+	}
+
 	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before class body."); err != nil {
 		return nil, err
 	}
@@ -236,16 +247,18 @@ func (p *Parser) classDecl() (Stmt, error) {
 	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
 		parsingStaticMethod := p.match(scanner.CLASS)
 
-		method, err := p.methodDecl()
+		methodDecl, err := p.methodDecl()
 
 		if err != nil {
 			return nil, err
 		}
 
+		method := methodDecl.(FunctionStmt)
+
 		if parsingStaticMethod {
-			staticMethods = append(staticMethods, method.(FunctionStmt))
+			staticMethods = append(staticMethods, method)
 		} else {
-			methods = append(methods, method.(FunctionStmt))
+			methods = append(methods, method)
 		}
 	}
 
@@ -253,7 +266,12 @@ func (p *Parser) classDecl() (Stmt, error) {
 		return nil, err
 	}
 
-	return ClassStmt{Name: name, Methods: methods, StaticMethods: staticMethods}, nil
+	return ClassStmt{
+		Name:          name,
+		Superclass:    superclass,
+		Methods:       methods,
+		StaticMethods: staticMethods,
+	}, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -749,6 +767,19 @@ func (p *Parser) primary() (Expr, error) {
 
 	if p.match(scanner.FUN) {
 		return p.lambda()
+	}
+
+	if p.match(scanner.SUPER) {
+		if _, err := p.consume(scanner.DOT, "Expected '.' after 'super'."); err != nil {
+			return nil, err
+		}
+
+		method, err := p.consume(scanner.IDENTIFIER, "Expected superclass method name.")
+		if err != nil {
+			return nil, err
+		}
+
+		return SuperExpr{Keyword: p.peekBehind(), Method: method}, nil
 	}
 
 	if p.match(scanner.LEFT_PAREN) {

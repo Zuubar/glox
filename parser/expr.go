@@ -7,6 +7,7 @@ type VisitorExpr interface {
 	VisitAssignmentExpr(AssignmentExpr) (any, error)
 	VisitLogicalExpr(LogicalExpr) (any, error)
 	VisitSetExpr(SetExpr) (any, error)
+	VisitSuperExpr(SuperExpr) (any, error)
 	VisitBinaryExpr(BinaryExpr) (any, error)
 	VisitGroupingExpr(GroupingExpr) (any, error)
 	VisitLiteralExpr(LiteralExpr) (any, error)
@@ -59,6 +60,15 @@ type SetExpr struct {
 
 func (s SetExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitSetExpr(s)
+}
+
+type SuperExpr struct {
+	Keyword scanner.Token
+	Method  scanner.Token
+}
+
+func (s SuperExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitSuperExpr(s)
 }
 
 type BinaryExpr struct {

@@ -11,6 +11,7 @@ const (
 	variableStateDefined  = "DEFINED"
 	variableStateRead     = "READ"
 
-	classTypeNone  = "NONE"
-	classTypeClass = "CLASS"
+	classTypeNone     = "NONE"
+	classTypeClass    = "CLASS"
+	classTypeSubclass = "SUBCLASS"
 )

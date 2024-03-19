@@ -20,7 +20,7 @@ if (prime % 2 == 0) {
 print prime;
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program, "2\n5\n"},
 	})
 }
@@ -75,7 +75,7 @@ while (true) {
 }
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program1, "10\n"},
 		{program2, "233\n"},
 		{program3, "Finished\nFinished for real\nFinished for real\nFinished for real\nFinished for real now\n"},
@@ -119,7 +119,7 @@ for (var i = 0; i < 2; i = i + 1) {
 }
 `
 
-	testPrograms(t, []testCase{
+	assertPrograms(t, []testCase{
 		{program1, "32\n32\n32\n32\n"},
 		{program2, "[0][0]\n[0][1]\n[1][0]\n[1][1]\n"},
 	})
