@@ -10,6 +10,7 @@ import (
 	"glox/scanner"
 	"math"
 	"reflect"
+	"strings"
 )
 
 type Interpreter struct {
@@ -71,6 +72,22 @@ func (i *Interpreter) stringify(obj any) string {
 		return "nil"
 	}
 
+	array, ok := obj.(*loxArray)
+	if ok {
+		elementsLen := len(array.elements)
+		var builder strings.Builder
+		builder.WriteString("[")
+
+		for idx, element := range array.elements {
+			builder.WriteString(i.stringify(element))
+			if idx+1 != elementsLen {
+				builder.WriteString(", ")
+			}
+		}
+		builder.WriteString("]")
+		return builder.String()
+	}
+
 	return fmt.Sprintf("%v", obj)
 }
 
@@ -119,6 +136,20 @@ func (i *Interpreter) lookupVariable(expr parser.Expr, name scanner.Token) (any,
 
 func (i *Interpreter) Resolve(expr parser.Expr, depth int32) {
 	i.locals[i.encodeExpression(expr)] = depth
+}
+
+func (i *Interpreter) VisitArrayExpr(expr parser.ArrayExpr) (any, error) {
+	elements := make([]any, 0)
+
+	for _, element := range expr.Elements {
+		value, err := i.evaluate(element)
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, value)
+	}
+
+	return newLoxArray(elements), nil
 }
 
 func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) (any, error) {
@@ -195,6 +226,36 @@ func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
 	instance.set(expr.Name, value)
 
 	return value, nil
+}
+
+func (i *Interpreter) VisitArraySetExpr(expr parser.ArraySetExpr) (any, error) {
+	indexExpr, err := i.evaluate(expr.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	index, ok := indexExpr.(float64)
+
+	if !ok || strings.Contains(i.stringify(index), ".") {
+		return nil, i.newError(expr.Bracket, "Array indices should be an integer.")
+	}
+
+	arrayExpr, err := i.evaluate(expr.Array)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	array := arrayExpr.(*loxArray)
+	if err := array.validate(uint(index), expr.Bracket); err != nil {
+		return nil, err
+	}
+
+	return array.set(uint(index), value), nil
 }
 
 func (i *Interpreter) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
@@ -367,6 +428,26 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 	}
 
 	return fun.call(i, make([]any, 0))
+}
+
+func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
+	indexExpr, err := i.evaluate(expr.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	index, ok := indexExpr.(float64)
+
+	if !ok || strings.Contains(i.stringify(index), ".") {
+		return nil, i.newError(expr.Bracket, "Array indices should be an integer.")
+	}
+
+	array, err := i.evaluate(expr.Array)
+	if err != nil {
+		return nil, err
+	}
+
+	return array.(*loxArray).get(uint(index)), nil
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {

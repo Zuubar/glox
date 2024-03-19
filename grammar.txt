@@ -34,9 +34,12 @@ term -> factor ( ( "+" | "-" ) factor)* ;
 factor -> unary ( ( "*" | "/" ) unary)* ;
 unary -> ( "!" | "-" ) unary | call ;
 
-call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
-arguments -> expression ("," expression) ;
+call -> (primary | arrayGet) ( "(" arguments? ")" | "." IDENTIFIER )* ;
+arguments -> expression ( "," expression )* ;
 
-primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | lambda | "super" "." IDENTIFIER ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER | array | lambda | "super" "." IDENTIFIER ;
 
 lambda -> "fun" "(" parameters? ")" block ;
+
+array -> "[" ( expression ( "," expression )* )? "]" ;
+arrayGet -> "[" NUMBER "]" ;

@@ -591,6 +591,8 @@ func (p *Parser) assignment() (Expr, error) {
 			return AssignmentExpr{Name: t.Name, Value: value}, nil
 		case GetExpr:
 			return SetExpr{Object: t.Object, Name: t.Name, Value: value}, nil
+		case ArrayGetExpr:
+			return ArraySetExpr{Array: t.Array, Bracket: t.Bracket, Index: t.Index, Value: value}, nil
 		default:
 			return nil, p.newError(equals, "Invalid assignment target.")
 		}
@@ -682,6 +684,21 @@ func (p *Parser) call() (Expr, error) {
 		return nil, err
 	}
 
+	if p.match(scanner.LEFT_BRACKET) {
+		bracket := p.peekBehind()
+
+		index, err := p.primary()
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := p.consume(scanner.RIGHT_BRACKET, "Excepted closing ']'."); err != nil {
+			return nil, err
+		}
+
+		expr = ArrayGetExpr{Array: expr, Bracket: bracket, Index: index}
+	}
+
 	for {
 		if p.match(scanner.LEFT_PAREN) {
 			if expr, err = p.finishCall(expr); err != nil {
@@ -740,6 +757,34 @@ func (p *Parser) lambda() (Expr, error) {
 	return LambdaExpr{Parenthesis: parenthesisToken, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
+func (p *Parser) array() (Expr, error) {
+	elements := make([]Expr, 0)
+
+	if p.match(scanner.RIGHT_BRACKET) {
+		return ArrayExpr{Elements: elements, Bracket: p.peekBehind()}, nil
+	}
+
+	firstElem, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+	elements = append(elements, firstElem)
+
+	for p.match(scanner.COMMA) {
+		elem, err := p.expression()
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, elem)
+	}
+
+	if _, err := p.consume(scanner.RIGHT_BRACKET, "Expected closing ']' for arrays."); err != nil {
+		return nil, err
+	}
+
+	return ArrayExpr{Elements: elements, Bracket: p.peekBehind()}, nil
+}
+
 func (p *Parser) primary() (Expr, error) {
 	if p.match(scanner.TRUE) {
 		return LiteralExpr{Value: true}, nil
@@ -780,6 +825,10 @@ func (p *Parser) primary() (Expr, error) {
 		}
 
 		return SuperExpr{Keyword: p.peekBehind(), Method: method}, nil
+	}
+
+	if p.match(scanner.LEFT_BRACKET) {
+		return p.array()
 	}
 
 	if p.match(scanner.LEFT_PAREN) {

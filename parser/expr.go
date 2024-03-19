@@ -3,16 +3,19 @@ package parser
 import "glox/scanner"
 
 type VisitorExpr interface {
+	VisitArrayExpr(ArrayExpr) (any, error)
 	VisitTernaryExpr(TernaryExpr) (any, error)
 	VisitAssignmentExpr(AssignmentExpr) (any, error)
 	VisitLogicalExpr(LogicalExpr) (any, error)
 	VisitSetExpr(SetExpr) (any, error)
+	VisitArraySetExpr(ArraySetExpr) (any, error)
 	VisitSuperExpr(SuperExpr) (any, error)
 	VisitBinaryExpr(BinaryExpr) (any, error)
 	VisitGroupingExpr(GroupingExpr) (any, error)
 	VisitLiteralExpr(LiteralExpr) (any, error)
 	VisitUnaryExpr(UnaryExpr) (any, error)
 	VisitGetExpr(GetExpr) (any, error)
+	VisitArrayGetExpr(ArrayGetExpr) (any, error)
 	VisitCallExpr(CallExpr) (any, error)
 	VisitLambdaExpr(LambdaExpr) (any, error)
 	VisitThisExpr(ThisExpr) (any, error)
@@ -21,6 +24,15 @@ type VisitorExpr interface {
 
 type Expr interface {
 	Accept(visitor VisitorExpr) (any, error)
+}
+
+type ArrayExpr struct {
+	Elements []Expr
+	Bracket  scanner.Token
+}
+
+func (a ArrayExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitArrayExpr(a)
 }
 
 type TernaryExpr struct {
@@ -60,6 +72,17 @@ type SetExpr struct {
 
 func (s SetExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitSetExpr(s)
+}
+
+type ArraySetExpr struct {
+	Array   Expr
+	Bracket scanner.Token
+	Index   Expr
+	Value   Expr
+}
+
+func (a ArraySetExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitArraySetExpr(a)
 }
 
 type SuperExpr struct {
@@ -113,6 +136,16 @@ type GetExpr struct {
 
 func (g GetExpr) Accept(visitor VisitorExpr) (any, error) {
 	return visitor.VisitGetExpr(g)
+}
+
+type ArrayGetExpr struct {
+	Array   Expr
+	Bracket scanner.Token
+	Index   Expr
+}
+
+func (a ArrayGetExpr) Accept(visitor VisitorExpr) (any, error) {
+	return visitor.VisitArrayGetExpr(a)
 }
 
 type CallExpr struct {
