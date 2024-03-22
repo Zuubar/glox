@@ -684,26 +684,26 @@ func (p *Parser) call() (Expr, error) {
 		return nil, err
 	}
 
-	if p.match(scanner.LEFT_BRACKET) {
-		bracket := p.peekBehind()
-
-		index, err := p.primary()
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := p.consume(scanner.RIGHT_BRACKET, "Excepted closing ']'."); err != nil {
-			return nil, err
-		}
-
-		expr = ArrayGetExpr{Array: expr, Bracket: bracket, Index: index}
-	}
-
 	for {
-		if p.match(scanner.LEFT_PAREN) {
+		if p.match(scanner.LEFT_BRACKET) {
+			bracket := p.peekBehind()
+
+			index, err := p.primary()
+			if err != nil {
+				return nil, err
+			}
+
+			if _, err := p.consume(scanner.RIGHT_BRACKET, "Excepted closing ']'."); err != nil {
+				return nil, err
+			}
+
+			expr = ArrayGetExpr{Array: expr, Bracket: bracket, Index: index}
+
+		} else if p.match(scanner.LEFT_PAREN) {
 			if expr, err = p.finishCall(expr); err != nil {
 				return nil, err
 			}
+
 		} else if p.match(scanner.DOT) {
 			name, err := p.consume(scanner.IDENTIFIER, "Expected property name after '.'.")
 
@@ -712,6 +712,7 @@ func (p *Parser) call() (Expr, error) {
 			}
 
 			expr = GetExpr{Object: expr, Name: name}
+
 		} else {
 			break
 		}

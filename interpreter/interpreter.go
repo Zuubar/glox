@@ -25,6 +25,8 @@ func New() *Interpreter {
 
 	globalEnv.define("clock", &nativeClock{})
 	globalEnv.define("str", &nativeStringify{})
+	globalEnv.define("append", &nativeAppend{})
+	globalEnv.define("len", &nativeLen{})
 
 	return &Interpreter{globalEnvironment: globalEnv, environment: env, locals: make(map[string]int32)}
 }
@@ -272,7 +274,7 @@ func (i *Interpreter) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
 			object := this.(loxAbstractInstance)
 
 			if method.isClassGetter {
-				return method.bind(object).call(i, make([]any, 0))
+				return method.bind(object).call(i, make([]any, 0), expr.Method)
 			}
 
 			return method.bind(object), nil
@@ -286,7 +288,7 @@ func (i *Interpreter) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
 	}
 
 	if staticMethod, ok := staticMethod.(*loxFunction); ok && staticMethod.isClassGetter {
-		return staticMethod.call(i, make([]any, 0))
+		return staticMethod.call(i, make([]any, 0), expr.Method)
 	}
 
 	return staticMethod, nil
@@ -427,7 +429,7 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 		return nil, i.newError(fun.funStmt.Name, "Class getters should return a value.")
 	}
 
-	return fun.call(i, make([]any, 0))
+	return fun.call(i, make([]any, 0), expr.Name)
 }
 
 func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
@@ -442,12 +444,17 @@ func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
 		return nil, i.newError(expr.Bracket, "Array indices should be an integer.")
 	}
 
-	array, err := i.evaluate(expr.Array)
+	arrayExpr, err := i.evaluate(expr.Array)
 	if err != nil {
 		return nil, err
 	}
 
-	return array.(*loxArray).get(uint(index)), nil
+	array := arrayExpr.(*loxArray)
+	if err := array.validate(uint(index), expr.Bracket); err != nil {
+		return nil, err
+	}
+
+	return array.get(uint(index)), nil
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
@@ -476,7 +483,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 		arguments = append(arguments, value)
 	}
 
-	return fun.call(i, arguments)
+	return fun.call(i, arguments, expr.Parenthesis)
 }
 
 func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {

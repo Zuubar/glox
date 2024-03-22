@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"glox/parser"
+	"glox/scanner"
 )
 
 type callable interface {
 	arity() int32
-	call(*Interpreter, []any) (any, error)
+	call(*Interpreter, []any, scanner.Token) (any, error)
 }
 
 type loxFunction struct {
@@ -37,7 +38,7 @@ func (f *loxFunction) arity() int32 {
 	return int32(len(f.funStmt.Parameters))
 }
 
-func (f *loxFunction) call(interpreter *Interpreter, arguments []any) (any, error) {
+func (f *loxFunction) call(interpreter *Interpreter, arguments []any, _ scanner.Token) (any, error) {
 	newEnv := newEnvironment(f.closure)
 
 	for i := 0; i < len(arguments); i++ {

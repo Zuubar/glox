@@ -83,12 +83,12 @@ func (c *loxClass) arity() int32 {
 	return 0
 }
 
-func (c *loxClass) call(interpreter *Interpreter, arguments []any) (any, error) {
+func (c *loxClass) call(interpreter *Interpreter, arguments []any, token scanner.Token) (any, error) {
 	initializer, ok := c.metaClass.methods["init"]
 	instance := &loxInstance{class: c, fields: make(map[string]any)}
 
 	if ok {
-		return initializer.bind(instance).call(interpreter, arguments)
+		return initializer.bind(instance).call(interpreter, arguments, token)
 	}
 
 	return instance, nil
