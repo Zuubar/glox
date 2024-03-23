@@ -170,6 +170,16 @@ func (r *Resolver) resolveLocal(expr parser.Expr, name scanner.Token, isRead boo
 	return nil, nil
 }
 
+func (r *Resolver) VisitArrayExpr(expr parser.ArrayExpr) (any, error) {
+	for _, element := range expr.Elements {
+		if _, err := r.resolveExpr(element); err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
+}
+
 func (r *Resolver) VisitTernaryExpr(expr parser.TernaryExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Condition); err != nil {
 		return nil, err
@@ -200,6 +210,18 @@ func (r *Resolver) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
 
 func (r *Resolver) VisitSetExpr(expr parser.SetExpr) (any, error) {
 	if _, err := r.resolveExpr(expr.Object); err != nil {
+		return nil, err
+	}
+
+	return r.resolveExpr(expr.Value)
+}
+
+func (r *Resolver) VisitArraySetExpr(expr parser.ArraySetExpr) (any, error) {
+	if _, err := r.resolveExpr(expr.Index); err != nil {
+		return nil, err
+	}
+
+	if _, err := r.resolveExpr(expr.Array); err != nil {
 		return nil, err
 	}
 
@@ -238,6 +260,14 @@ func (r *Resolver) VisitUnaryExpr(expr parser.UnaryExpr) (any, error) {
 
 func (r *Resolver) VisitGetExpr(expr parser.GetExpr) (any, error) {
 	return r.resolveExpr(expr.Object)
+}
+
+func (r *Resolver) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
+	if _, err := r.resolveExpr(expr.Index); err != nil {
+		return nil, err
+	}
+
+	return r.resolveExpr(expr.Array)
 }
 
 func (r *Resolver) VisitCallExpr(expr parser.CallExpr) (any, error) {

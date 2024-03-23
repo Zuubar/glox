@@ -3,18 +3,20 @@ package scanner
 type TokenType string
 
 const (
-	LEFT_PAREN  TokenType = "LEFT_PAREN"
-	RIGHT_PAREN TokenType = "RIGHT_PAREN"
-	LEFT_BRACE  TokenType = "LEFT_BRACE"
-	RIGHT_BRACE TokenType = "RIGHT_BRACE"
-	COMMA       TokenType = "COMMA"
-	DOT         TokenType = "DOT"
-	MINUS       TokenType = "MINUS"
-	PLUS        TokenType = "PLUS"
-	SEMICOLON   TokenType = "SEMICOLON"
-	SLASH       TokenType = "SLASH"
-	STAR        TokenType = "STAR"
-	MODULO      TokenType = "MODULO"
+	LEFT_PAREN    TokenType = "LEFT_PAREN"
+	RIGHT_PAREN   TokenType = "RIGHT_PAREN"
+	LEFT_BRACE    TokenType = "LEFT_BRACE"
+	RIGHT_BRACE   TokenType = "RIGHT_BRACE"
+	LEFT_BRACKET  TokenType = "LEFT_BRACKET"
+	RIGHT_BRACKET TokenType = "RIGHT_BRACKET"
+	COMMA         TokenType = "COMMA"
+	DOT           TokenType = "DOT"
+	MINUS         TokenType = "MINUS"
+	PLUS          TokenType = "PLUS"
+	SEMICOLON     TokenType = "SEMICOLON"
+	SLASH         TokenType = "SLASH"
+	STAR          TokenType = "STAR"
+	MODULO        TokenType = "MODULO"
 	// One or two character tokens.
 
 	BANG          TokenType = "BANG"

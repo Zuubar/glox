@@ -83,16 +83,19 @@ func main() {
 	outputDir := os.Args[1]
 
 	defineAst(outputDir, "Expr", []string{
+		"Array 		: Elements []Expr, Bracket scanner.Token",
 		"Ternary  	: Condition Expr, Left Expr, Right Expr",
 		"Assignment : Name scanner.Token, Value Expr",
 		"Logical	: Left Expr, Operator scanner.Token, Right Expr",
 		"Set		: Object Expr, Name scanner.Token, Value Expr",
+		"ArraySet	: Array Expr, Bracket scanner.Token, Index Expr, Value Expr",
 		"Super		: Keyword scanner.Token, Method scanner.Token",
 		"Binary		: Left Expr, Operator scanner.Token, Right Expr",
 		"Grouping	: Expr Expr",
 		"Literal	: Value any",
 		"Unary		: Operator scanner.Token, Right Expr",
 		"Get		: Object Expr, Name scanner.Token",
+		"ArrayGet	: Array Expr, Bracket scanner.Token, Index Expr",
 		"Call		: Callee Expr, Parenthesis scanner.Token, Arguments []Expr",
 		"Lambda		: Parenthesis scanner.Token, Parameters []scanner.Token, Body []Stmt",
 		"This 		: Keyword scanner.Token",

@@ -173,6 +173,12 @@ func (s *Scanner) Run() ([]Token, error) {
 		case '}':
 			s.addToken(RIGHT_BRACE, nil)
 			break
+		case '[':
+			s.addToken(LEFT_BRACKET, nil)
+			break
+		case ']':
+			s.addToken(RIGHT_BRACKET, nil)
+			break
 		case ',':
 			s.addToken(COMMA, nil)
 			break
