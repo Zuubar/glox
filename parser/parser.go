@@ -132,6 +132,7 @@ func (p *Parser) synchronize() {
 
 		switch p.peek().Type {
 		case scanner.CLASS:
+		case scanner.TRAIT:
 		case scanner.FUN:
 		case scanner.VAR:
 		case scanner.FOR:
@@ -153,6 +154,9 @@ func (p *Parser) declaration() (Stmt, error) {
 	}
 	if p.match(scanner.CLASS) {
 		return p.classDecl()
+	}
+	if p.match(scanner.TRAIT) {
+		return p.traitDecl()
 	}
 	if p.match(scanner.FUN) {
 		return p.functionDecl("function")
@@ -221,6 +225,29 @@ func (p *Parser) methodDecl() (Stmt, error) {
 	return FunctionStmt{Name: name, Parameters: parameters, Body: body.(BlockStmt).Declarations}, nil
 }
 
+func (p *Parser) classMethods() ([]FunctionStmt, []FunctionStmt, error) {
+	methods, staticMethods := make([]FunctionStmt, 0), make([]FunctionStmt, 0)
+	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
+		parsingStaticMethod := p.match(scanner.CLASS)
+
+		methodDecl, err := p.methodDecl()
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		method := methodDecl.(FunctionStmt)
+
+		if parsingStaticMethod {
+			staticMethods = append(staticMethods, method)
+		} else {
+			methods = append(methods, method)
+		}
+	}
+
+	return methods, staticMethods, nil
+}
+
 func (p *Parser) classDecl() (Stmt, error) {
 	name, err := p.consume(scanner.IDENTIFIER, "Expected class name.")
 
@@ -239,27 +266,34 @@ func (p *Parser) classDecl() (Stmt, error) {
 		superclass.Name = name
 	}
 
+	traits := make([]VariableExpr, 0)
+
+	if p.match(scanner.USE_TRAIT) {
+		traitName, err := p.consume(scanner.IDENTIFIER, "Excepted trait name.")
+		if err != nil {
+			return nil, nil
+		}
+
+		traits = append(traits, VariableExpr{Name: traitName})
+
+		for p.match(scanner.COMMA) {
+			traitName, err := p.consume(scanner.IDENTIFIER, "Excepted trait name.")
+			if err != nil {
+				return nil, err
+			}
+
+			traits = append(traits, VariableExpr{Name: traitName})
+		}
+	}
+
 	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before class body."); err != nil {
 		return nil, err
 	}
 
-	methods, staticMethods := make([]FunctionStmt, 0), make([]FunctionStmt, 0)
-	for !p.check(scanner.RIGHT_BRACE) && !p.isAtEnd() {
-		parsingStaticMethod := p.match(scanner.CLASS)
+	methods, staticMethods, err := p.classMethods()
 
-		methodDecl, err := p.methodDecl()
-
-		if err != nil {
-			return nil, err
-		}
-
-		method := methodDecl.(FunctionStmt)
-
-		if parsingStaticMethod {
-			staticMethods = append(staticMethods, method)
-		} else {
-			methods = append(methods, method)
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	if _, err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after class body."); err != nil {
@@ -269,6 +303,31 @@ func (p *Parser) classDecl() (Stmt, error) {
 	return ClassStmt{
 		Name:          name,
 		Superclass:    superclass,
+		Traits:        traits,
+		Methods:       methods,
+		StaticMethods: staticMethods,
+	}, nil
+}
+
+func (p *Parser) traitDecl() (Stmt, error) {
+	name, err := p.consume(scanner.IDENTIFIER, "Expected trait name.")
+
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(scanner.LEFT_BRACE, "Expected '{' before trait body."); err != nil {
+		return nil, err
+	}
+
+	methods, staticMethods, err := p.classMethods()
+
+	if _, err := p.consume(scanner.RIGHT_BRACE, "Expected '}' after trait body."); err != nil {
+		return nil, err
+	}
+
+	return TraitStmt{
+		Name:          name,
 		Methods:       methods,
 		StaticMethods: staticMethods,
 	}, nil

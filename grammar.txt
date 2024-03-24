@@ -3,7 +3,11 @@ declaration -> varDecl | classDecl | functionDecl | statement ;
 
 varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 
-classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" (method | getterMethod)* "}" ;
+traitDecl -> "trait" IDENTIFIER "{" (method | getterMethod)* "}" ;
+
+classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" (useTrait | classMethods )* "}" ;
+useTrait -> "use" ( IDENTIFIER ( IDENTIFIER "," )* )? ";" ;
+classMethods -> method | getterMethod ;
 method -> "class"? function ;
 getterMethod -> IDENTIFIER block ;
 

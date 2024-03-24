@@ -424,12 +424,13 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 		return nil, i.newError(fun.funStmt.Name, "Class getters should not have empty bodies.")
 	}
 
-	_, ok = getterBody[len(getterBody)-1].(parser.ReturnStmt)
-	if !ok {
-		return nil, i.newError(fun.funStmt.Name, "Class getters should return a value.")
+	for _, stmt := range getterBody {
+		if _, ok := stmt.(parser.ReturnStmt); ok {
+			return fun.call(i, make([]any, 0), expr.Name)
+		}
 	}
 
-	return fun.call(i, make([]any, 0), expr.Name)
+	return nil, i.newError(fun.funStmt.Name, "Class getters should return value explicitly.")
 }
 
 func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
@@ -488,7 +489,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 
 func (i *Interpreter) VisitLambdaExpr(expr parser.LambdaExpr) (any, error) {
 	name := scanner.Token{Type: scanner.IDENTIFIER, Lexeme: "lambda", Literal: nil, Line: expr.Parenthesis.Line}
-	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment, false, false), nil
+	return newLoxFunction(parser.FunctionStmt{Name: name, Parameters: expr.Parameters, Body: expr.Body}, i.environment), nil
 }
 
 func (i *Interpreter) VisitThisExpr(expr parser.ThisExpr) (any, error) {
@@ -561,14 +562,34 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		i.environment.define("super", superclass)
 	}
 
-	methods := make(map[string]*loxFunction)
-	for _, method := range stmt.Methods {
-		methods[method.Name.Lexeme] = newLoxFunction(method, i.environment, method.Name.Lexeme == "init", method.Parameters == nil)
+	methods, staticMethods := make(map[string]*loxFunction), make(map[string]*loxFunction)
+
+	for _, classTrait := range stmt.Traits {
+		traitStmt, err := i.evaluate(classTrait)
+		if err != nil {
+			return nil, err
+		}
+
+		trait, ok := traitStmt.(*loxTrait)
+		if !ok {
+			return nil, i.newError(classTrait.Name, fmt.Sprintf("'%s' is not a trait.", classTrait.Name.Lexeme))
+		}
+
+		for _, method := range trait.Methods() {
+			methods[method.Name.Lexeme] = newLoxFunction(method, i.environment)
+		}
+
+		for _, method := range trait.StaticMethods() {
+			staticMethods[method.Name.Lexeme] = newLoxStaticMethod(method, i.environment)
+		}
 	}
 
-	staticMethods := make(map[string]*loxFunction)
+	for _, method := range stmt.Methods {
+		methods[method.Name.Lexeme] = newLoxMethod(method, i.environment)
+	}
+
 	for _, method := range stmt.StaticMethods {
-		staticMethods[method.Name.Lexeme] = newLoxFunction(method, i.environment, false, method.Parameters == nil)
+		staticMethods[method.Name.Lexeme] = newLoxStaticMethod(method, i.environment)
 	}
 
 	if superclassExists {
@@ -580,8 +601,13 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	return nil, nil
 }
 
+func (i *Interpreter) VisitTraitStmt(stmt parser.TraitStmt) (any, error) {
+	i.environment.define(stmt.Name.Lexeme, newTrait(stmt))
+	return nil, nil
+}
+
 func (i *Interpreter) VisitFunctionStmt(stmt parser.FunctionStmt) (any, error) {
-	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment, false, false))
+	i.environment.define(stmt.Name.Lexeme, newLoxFunction(stmt, i.environment))
 	return nil, nil
 }
 
