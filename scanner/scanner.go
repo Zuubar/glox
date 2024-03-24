@@ -7,6 +7,7 @@ import (
 var Keywords = map[string]TokenType{
 	"and":      AND,
 	"class":    CLASS,
+	"trait":    TRAIT,
 	"else":     ELSE,
 	"false":    FALSE,
 	"fun":      FUN,
@@ -242,6 +243,9 @@ func (s *Scanner) Run() ([]Token, error) {
 		case '<':
 			if s.match('=') {
 				s.addToken(LESS_EQUAL, nil)
+				s.advance()
+			} else if s.match('>') {
+				s.addToken(USE_TRAIT, nil)
 				s.advance()
 			} else {
 				s.addToken(LESS, nil)

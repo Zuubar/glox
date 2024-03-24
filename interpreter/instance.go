@@ -40,8 +40,7 @@ type loxClass struct {
 }
 
 func (c *loxClass) findMethod(name string) (*loxFunction, bool) {
-	fun, ok := c.metaClass.methods[name]
-	if ok {
+	if fun, ok := c.metaClass.methods[name]; ok {
 		return fun, true
 	}
 
@@ -53,13 +52,11 @@ func (c *loxClass) findMethod(name string) (*loxFunction, bool) {
 }
 
 func (c *loxClass) get(name scanner.Token) (any, error) {
-	field, ok := c.staticFields[name.Lexeme]
-	if ok {
+	if field, ok := c.staticFields[name.Lexeme]; ok {
 		return field, nil
 	}
 
-	staticMethod, ok := c.metaClass.staticMethods[name.Lexeme]
-	if ok {
+	if staticMethod, ok := c.metaClass.staticMethods[name.Lexeme]; ok {
 		return staticMethod, nil
 	}
 
@@ -75,8 +72,7 @@ func (c *loxClass) set(name scanner.Token, value any) {
 }
 
 func (c *loxClass) arity() int32 {
-	initializer, ok := c.metaClass.methods["init"]
-	if ok {
+	if initializer, ok := c.metaClass.methods["init"]; ok {
 		return initializer.arity()
 	}
 
@@ -84,10 +80,9 @@ func (c *loxClass) arity() int32 {
 }
 
 func (c *loxClass) call(interpreter *Interpreter, arguments []any, token scanner.Token) (any, error) {
-	initializer, ok := c.metaClass.methods["init"]
 	instance := &loxInstance{class: c, fields: make(map[string]any)}
 
-	if ok {
+	if initializer, ok := c.metaClass.methods["init"]; ok {
 		return initializer.bind(instance).call(interpreter, arguments, token)
 	}
 
@@ -104,13 +99,11 @@ type loxInstance struct {
 }
 
 func (i *loxInstance) get(name scanner.Token) (any, error) {
-	field, ok := i.fields[name.Lexeme]
-	if ok {
+	if field, ok := i.fields[name.Lexeme]; ok {
 		return field, nil
 	}
 
-	method, ok := i.class.findMethod(name.Lexeme)
-	if ok {
+	if method, ok := i.class.findMethod(name.Lexeme); ok {
 		return method.bind(i), nil
 	}
 

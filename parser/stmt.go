@@ -7,6 +7,7 @@ type VisitorStmt interface {
 	VisitPrintStmt(PrintStmt) (any, error)
 	VisitVarStmt(VarStmt) (any, error)
 	VisitClassStmt(ClassStmt) (any, error)
+	VisitTraitStmt(TraitStmt) (any, error)
 	VisitFunctionStmt(FunctionStmt) (any, error)
 	VisitBlockStmt(BlockStmt) (any, error)
 	VisitIfStmt(IfStmt) (any, error)
@@ -49,12 +50,23 @@ func (v VarStmt) Accept(visitor VisitorStmt) (any, error) {
 type ClassStmt struct {
 	Name          scanner.Token
 	Superclass    VariableExpr
+	Traits        []VariableExpr
 	Methods       []FunctionStmt
 	StaticMethods []FunctionStmt
 }
 
 func (c ClassStmt) Accept(visitor VisitorStmt) (any, error) {
 	return visitor.VisitClassStmt(c)
+}
+
+type TraitStmt struct {
+	Name          scanner.Token
+	Methods       []FunctionStmt
+	StaticMethods []FunctionStmt
+}
+
+func (t TraitStmt) Accept(visitor VisitorStmt) (any, error) {
+	return visitor.VisitTraitStmt(t)
 }
 
 type FunctionStmt struct {

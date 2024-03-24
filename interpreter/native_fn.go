@@ -42,7 +42,7 @@ func (n *nativeAppend) arity() int32 {
 	return 2
 }
 
-func (n *nativeAppend) call(i *Interpreter, arguments []any, token scanner.Token) (any, error) {
+func (n *nativeAppend) call(_ *Interpreter, arguments []any, token scanner.Token) (any, error) {
 	array, ok := arguments[0].(*loxArray)
 	if !ok {
 		return nil, &Error{Token: token, Message: "First argument to 'append' should be an array."}
@@ -62,7 +62,7 @@ func (n *nativeLen) arity() int32 {
 	return 1
 }
 
-func (n *nativeLen) call(i *Interpreter, arguments []any, token scanner.Token) (any, error) {
+func (n *nativeLen) call(_ *Interpreter, arguments []any, token scanner.Token) (any, error) {
 	array, ok := arguments[0].(*loxArray)
 	if !ok {
 		return nil, &Error{Token: token, Message: "First argument to 'len' should be an array."}

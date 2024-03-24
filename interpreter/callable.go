@@ -19,19 +19,34 @@ type loxFunction struct {
 	isClassGetter      bool
 }
 
-func newLoxFunction(funStmt parser.FunctionStmt, closure *environment, isClassInitializer bool, isClassGetter bool) *loxFunction {
+func newLoxFunction(funStmt parser.FunctionStmt, closure *environment) *loxFunction {
+	return &loxFunction{
+		funStmt: funStmt,
+		closure: closure,
+	}
+}
+
+func newLoxMethod(funStmt parser.FunctionStmt, closure *environment) *loxFunction {
 	return &loxFunction{
 		funStmt:            funStmt,
 		closure:            closure,
-		isClassInitializer: isClassInitializer,
-		isClassGetter:      isClassGetter,
+		isClassInitializer: funStmt.Name.Lexeme == "init",
+		isClassGetter:      funStmt.Parameters == nil,
+	}
+}
+
+func newLoxStaticMethod(funStmt parser.FunctionStmt, closure *environment) *loxFunction {
+	return &loxFunction{
+		funStmt:       funStmt,
+		closure:       closure,
+		isClassGetter: funStmt.Parameters == nil,
 	}
 }
 
 func (f *loxFunction) bind(i loxAbstractInstance) *loxFunction {
 	env := newEnvironment(f.closure)
 	env.define("this", i)
-	return newLoxFunction(f.funStmt, env, f.isClassInitializer, f.isClassGetter)
+	return newLoxMethod(f.funStmt, env)
 }
 
 func (f *loxFunction) arity() int32 {

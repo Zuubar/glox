@@ -366,6 +366,12 @@ func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 		r.currentClass = currentClass
 	}()
 
+	for _, trait := range stmt.Traits {
+		if _, err := r.resolveExpr(trait); err != nil {
+			return nil, err
+		}
+	}
+
 	lastScope := *r.peekScope()
 	lastScope["this"] = &variable{state: variableStateRead}
 
@@ -388,6 +394,43 @@ func (r *Resolver) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 
 	if superclassExists {
 		r.endScope()
+	}
+
+	return nil, nil
+}
+
+func (r *Resolver) VisitTraitStmt(stmt parser.TraitStmt) (any, error) {
+	currentClass := r.currentClass
+	r.currentClass = classTypeClass
+
+	if err := r.declare(stmt.Name); err != nil {
+		return nil, err
+	}
+	r.define(stmt.Name)
+
+	r.beginScope()
+	defer func() {
+		r.endScope()
+		r.currentClass = currentClass
+	}()
+
+	lastScope := *r.peekScope()
+	lastScope["this"] = &variable{state: variableStateRead}
+
+	for _, method := range stmt.Methods {
+		if method.Name.Lexeme == "init" {
+			return nil, r.newError(method.Name, "Traits can't include init() method.")
+		}
+
+		if _, err := r.resolveFunctions(method, functionTypeMethod); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, method := range stmt.StaticMethods {
+		if _, err := r.resolveFunctions(method, functionTypeStaticMethod); err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
