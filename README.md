@@ -112,7 +112,7 @@ class Interpreter <> Scanner, Parser {
 }
 ```
 
-You can also inherit classes and also implement traits at the same time.
+You can also inherit classes and implement traits at the same time.
 ```lox
 trait Sin {
     sin90 {
@@ -345,7 +345,7 @@ Hello, Glox
 ```
 
 ## Building
-Glox only requires `go >= 1.22` contains no third-party dependencies, so building it should be a breeze. In the root directory of a project:
+Glox only requires `go >= 1.22` and does not require third-party dependencies, so building it should be a breeze. In the root directory of a project:
 ```bash
 go build -o glox
 ```
