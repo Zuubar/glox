@@ -5,9 +5,9 @@ varDecl -> "var" IDENTIFIER ( "=" expression ";" )? ;
 
 traitDecl -> "trait" IDENTIFIER "{" (method | getterMethod)* "}" ;
 
-classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" (useTrait | classMethods )* "}" ;
-useTrait -> "use" ( IDENTIFIER ( IDENTIFIER "," )* )? ";" ;
-classMethods -> method | getterMethod ;
+classDecl -> "class" IDENTIFIER ( inheritClass )? ( implementTrait )? "{" ( method | getterMethod )* "}" ;
+inheritClass -> "<" IDENTIFIER ;
+implementTrait -> "<>" IDENTIFIER ( IDENTIFIER "," )* ;
 method -> "class"? function ;
 getterMethod -> IDENTIFIER block ;
 

@@ -69,7 +69,7 @@ func (i *Interpreter) areEqual(obj1 any, obj2 any) bool {
 	return obj1 == obj2
 }
 
-func (i *Interpreter) stringify(obj any) string {
+func (i *Interpreter) Stringify(obj any) string {
 	if obj == nil {
 		return "nil"
 	}
@@ -81,7 +81,7 @@ func (i *Interpreter) stringify(obj any) string {
 		builder.WriteString("[")
 
 		for idx, element := range array.elements {
-			builder.WriteString(i.stringify(element))
+			builder.WriteString(i.Stringify(element))
 			if idx+1 != elementsLen {
 				builder.WriteString(", ")
 			}
@@ -93,7 +93,7 @@ func (i *Interpreter) stringify(obj any) string {
 	return fmt.Sprintf("%v", obj)
 }
 
-func (i *Interpreter) evaluate(expr parser.Expr) (any, error) {
+func (i *Interpreter) Evaluate(expr parser.Expr) (any, error) {
 	return expr.Accept(i)
 }
 
@@ -144,7 +144,7 @@ func (i *Interpreter) VisitArrayExpr(expr parser.ArrayExpr) (any, error) {
 	elements := make([]any, 0)
 
 	for _, element := range expr.Elements {
-		value, err := i.evaluate(element)
+		value, err := i.Evaluate(element)
 		if err != nil {
 			return nil, err
 		}
@@ -155,21 +155,21 @@ func (i *Interpreter) VisitArrayExpr(expr parser.ArrayExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitTernaryExpr(ternary parser.TernaryExpr) (any, error) {
-	obj, err := i.evaluate(ternary.Condition)
+	obj, err := i.Evaluate(ternary.Condition)
 	if err != nil {
 		return nil, err
 	}
 
 	if i.isTruthy(obj) {
-		return i.evaluate(ternary.Left)
+		return i.Evaluate(ternary.Left)
 	}
 
-	return i.evaluate(ternary.Right)
+	return i.Evaluate(ternary.Right)
 }
 
 func (i *Interpreter) VisitAssignmentExpr(assignment parser.AssignmentExpr) (any, error) {
 	token := assignment.Name
-	value, err := i.evaluate(assignment.Value)
+	value, err := i.Evaluate(assignment.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (i *Interpreter) VisitAssignmentExpr(assignment parser.AssignmentExpr) (any
 }
 
 func (i *Interpreter) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
-	left, err := i.evaluate(expr.Left)
+	left, err := i.Evaluate(expr.Left)
 	if err != nil {
 		return nil, err
 	}
@@ -206,16 +206,16 @@ func (i *Interpreter) VisitLogicalExpr(expr parser.LogicalExpr) (any, error) {
 		}
 	}
 
-	return i.evaluate(expr.Right)
+	return i.Evaluate(expr.Right)
 }
 
 func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
-	object, err := i.evaluate(expr.Object)
+	object, err := i.Evaluate(expr.Object)
 	if err != nil {
 		return nil, err
 	}
 
-	value, err := i.evaluate(expr.Value)
+	value, err := i.Evaluate(expr.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -231,23 +231,23 @@ func (i *Interpreter) VisitSetExpr(expr parser.SetExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitArraySetExpr(expr parser.ArraySetExpr) (any, error) {
-	indexExpr, err := i.evaluate(expr.Index)
+	indexExpr, err := i.Evaluate(expr.Index)
 	if err != nil {
 		return nil, err
 	}
 
 	index, ok := indexExpr.(float64)
 
-	if !ok || strings.Contains(i.stringify(index), ".") {
+	if !ok || strings.Contains(i.Stringify(index), ".") {
 		return nil, i.newError(expr.Bracket, "Array indices should be an integer.")
 	}
 
-	arrayExpr, err := i.evaluate(expr.Array)
+	arrayExpr, err := i.Evaluate(expr.Array)
 	if err != nil {
 		return nil, err
 	}
 
-	value, err := i.evaluate(expr.Value)
+	value, err := i.Evaluate(expr.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -295,12 +295,12 @@ func (i *Interpreter) VisitSuperExpr(expr parser.SuperExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) (any, error) {
-	obj1, err := i.evaluate(binary.Left)
+	obj1, err := i.Evaluate(binary.Left)
 	if err != nil {
 		return nil, err
 	}
 
-	obj2, err := i.evaluate(binary.Right)
+	obj2, err := i.Evaluate(binary.Right)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +374,7 @@ func (i *Interpreter) VisitBinaryExpr(binary parser.BinaryExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitGroupingExpr(grouping parser.GroupingExpr) (any, error) {
-	return i.evaluate(grouping.Expr)
+	return i.Evaluate(grouping.Expr)
 }
 
 func (i *Interpreter) VisitLiteralExpr(literal parser.LiteralExpr) (any, error) {
@@ -382,7 +382,7 @@ func (i *Interpreter) VisitLiteralExpr(literal parser.LiteralExpr) (any, error) 
 }
 
 func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) (any, error) {
-	obj, err := i.evaluate(unary.Right)
+	obj, err := i.Evaluate(unary.Right)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (i *Interpreter) VisitUnaryExpr(unary parser.UnaryExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
-	object, err := i.evaluate(expr.Object)
+	object, err := i.Evaluate(expr.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -434,18 +434,18 @@ func (i *Interpreter) VisitGetExpr(expr parser.GetExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
-	indexExpr, err := i.evaluate(expr.Index)
+	indexExpr, err := i.Evaluate(expr.Index)
 	if err != nil {
 		return nil, err
 	}
 
 	index, ok := indexExpr.(float64)
 
-	if !ok || strings.Contains(i.stringify(index), ".") {
+	if !ok || strings.Contains(i.Stringify(index), ".") {
 		return nil, i.newError(expr.Bracket, "Array indices should be an integer.")
 	}
 
-	arrayExpr, err := i.evaluate(expr.Array)
+	arrayExpr, err := i.Evaluate(expr.Array)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +459,7 @@ func (i *Interpreter) VisitArrayGetExpr(expr parser.ArrayGetExpr) (any, error) {
 }
 
 func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
-	callee, err := i.evaluate(expr.Callee)
+	callee, err := i.Evaluate(expr.Callee)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func (i *Interpreter) VisitCallExpr(expr parser.CallExpr) (any, error) {
 	arguments := make([]any, 0)
 
 	for _, arg := range expr.Arguments {
-		value, err := i.evaluate(arg)
+		value, err := i.Evaluate(arg)
 		if err != nil {
 			return nil, err
 		}
@@ -507,7 +507,7 @@ func (i *Interpreter) VisitVariableExpr(variableExpr parser.VariableExpr) (any, 
 }
 
 func (i *Interpreter) VisitExpressionStmt(expressionStmt parser.ExpressionStmt) (any, error) {
-	_, err := i.evaluate(expressionStmt.Expression)
+	_, err := i.Evaluate(expressionStmt.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -515,11 +515,11 @@ func (i *Interpreter) VisitExpressionStmt(expressionStmt parser.ExpressionStmt) 
 }
 
 func (i *Interpreter) VisitPrintStmt(stmt parser.PrintStmt) (any, error) {
-	value, err := i.evaluate(stmt.Expression)
+	value, err := i.Evaluate(stmt.Expression)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(i.stringify(value))
+	fmt.Println(i.Stringify(value))
 	return nil, nil
 }
 
@@ -528,7 +528,7 @@ func (i *Interpreter) VisitVarStmt(varStmt parser.VarStmt) (any, error) {
 	var err error = nil
 
 	if varStmt.Initializer != nil {
-		value, err = i.evaluate(varStmt.Initializer)
+		value, err = i.Evaluate(varStmt.Initializer)
 		if err != nil {
 			return nil, err
 		}
@@ -546,7 +546,7 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	var superclass *loxClass
 
 	if superclassExists {
-		result, err := i.evaluate(stmt.Superclass)
+		result, err := i.Evaluate(stmt.Superclass)
 
 		if err != nil {
 			return nil, err
@@ -565,7 +565,7 @@ func (i *Interpreter) VisitClassStmt(stmt parser.ClassStmt) (any, error) {
 	methods, staticMethods := make(map[string]*loxFunction), make(map[string]*loxFunction)
 
 	for _, classTrait := range stmt.Traits {
-		traitStmt, err := i.evaluate(classTrait)
+		traitStmt, err := i.Evaluate(classTrait)
 		if err != nil {
 			return nil, err
 		}
@@ -616,7 +616,7 @@ func (i *Interpreter) VisitBlockStmt(stmt parser.BlockStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
-	value, err := i.evaluate(stmt.Expression)
+	value, err := i.Evaluate(stmt.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +635,7 @@ func (i *Interpreter) VisitIfStmt(stmt parser.IfStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
-	condition, err := i.evaluate(stmt.Condition)
+	condition, err := i.Evaluate(stmt.Condition)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +651,7 @@ func (i *Interpreter) VisitWhileStmt(stmt parser.WhileStmt) (any, error) {
 			return nil, err
 		}
 
-		condition, _ = i.evaluate(stmt.Condition)
+		condition, _ = i.Evaluate(stmt.Condition)
 	}
 	return nil, nil
 }
@@ -669,7 +669,7 @@ func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
 		forCondition = parser.LiteralExpr{Value: true}
 	}
 
-	condition, err := i.evaluate(forCondition)
+	condition, err := i.Evaluate(forCondition)
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +680,7 @@ func (i *Interpreter) VisitForStmt(stmt parser.ForStmt) (any, error) {
 				return err
 			}
 		}
-		condition, _ = i.evaluate(forCondition)
+		condition, _ = i.Evaluate(forCondition)
 		return nil
 	}
 
@@ -718,7 +718,7 @@ func (i *Interpreter) VisitReturnStmt(stmt parser.ReturnStmt) (any, error) {
 	var err error = nil
 
 	if stmt.Expr != nil {
-		value, err = i.evaluate(stmt.Expr)
+		value, err = i.Evaluate(stmt.Expr)
 
 		if err != nil {
 			return nil, err

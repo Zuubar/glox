@@ -20,5 +20,5 @@ type Warning struct {
 }
 
 func (e *Warning) Error() string {
-	return fmt.Sprintf("Warning: %s \n[line %d]\n", e.Message, e.Token.Line)
+	return fmt.Sprintf("[line %d] Warning: %s\n", e.Token.Line, e.Message)
 }

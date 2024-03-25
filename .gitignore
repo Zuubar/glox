@@ -19,3 +19,4 @@ go.work
 
 # test .lox files
 test*.lox
+test*.glox
