@@ -28,7 +28,7 @@ func (n *nativeStringify) arity() int32 {
 }
 
 func (n *nativeStringify) call(i *Interpreter, arguments []any, _ scanner.Token) (any, error) {
-	return i.stringify(arguments[0]), nil
+	return i.Stringify(arguments[0]), nil
 }
 
 func (n *nativeStringify) String() string {

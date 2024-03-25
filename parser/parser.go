@@ -173,7 +173,7 @@ func (p *Parser) varDecl() (Stmt, error) {
 	varDecl := VarStmt{Name: name, Initializer: nil}
 
 	if p.match(scanner.EQUAL) {
-		expr, err := p.expression()
+		expr, err := p.Expression()
 		if err != nil {
 			return nil, err
 		}
@@ -399,7 +399,7 @@ func (p *Parser) functionDecl(kind string) (Stmt, error) {
 }
 
 func (p *Parser) expressionStmt() (Stmt, error) {
-	expr, err := p.expression()
+	expr, err := p.Expression()
 
 	if err != nil {
 		return nil, err
@@ -413,7 +413,7 @@ func (p *Parser) expressionStmt() (Stmt, error) {
 }
 
 func (p *Parser) printStmt() (Stmt, error) {
-	expr, err := p.expression()
+	expr, err := p.Expression()
 
 	if err != nil {
 		return nil, err
@@ -448,7 +448,7 @@ func (p *Parser) ifStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	expr, err := p.expression()
+	expr, err := p.Expression()
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +479,7 @@ func (p *Parser) whileStmt() (Stmt, error) {
 		return nil, err
 	}
 
-	expr, err := p.expression()
+	expr, err := p.Expression()
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +519,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 	var condition Expr = nil
 
 	if !p.match(scanner.SEMICOLON) {
-		condition, err = p.expression()
+		condition, err = p.Expression()
 
 		if err != nil {
 			return nil, err
@@ -533,7 +533,7 @@ func (p *Parser) forStmt() (Stmt, error) {
 	var increment Stmt = nil
 
 	if !p.match(scanner.RIGHT_PAREN) {
-		incrementExpr, err := p.expression()
+		incrementExpr, err := p.Expression()
 
 		if err != nil {
 			return nil, err
@@ -589,7 +589,7 @@ func (p *Parser) returnStmt() (Stmt, error) {
 	var expr Expr = nil
 	var err error = nil
 	if !p.check(scanner.SEMICOLON) {
-		if expr, err = p.expression(); err != nil {
+		if expr, err = p.Expression(); err != nil {
 			return nil, err
 		}
 	}
@@ -601,7 +601,7 @@ func (p *Parser) returnStmt() (Stmt, error) {
 	return ReturnStmt{Keyword: keyword, Expr: expr}, nil
 }
 
-func (p *Parser) expression() (Expr, error) {
+func (p *Parser) Expression() (Expr, error) {
 	return p.ternary()
 }
 
@@ -709,7 +709,7 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 		return CallExpr{Callee: callee, Parenthesis: p.peekBehind(), Arguments: arguments}, nil
 	}
 
-	firstArg, err := p.expression()
+	firstArg, err := p.Expression()
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +721,7 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 			return nil, p.newError(p.peek(), "Can't have more than 255 arguments.")
 		}
 
-		arg, err := p.expression()
+		arg, err := p.Expression()
 		if err != nil {
 			return nil, err
 		}
@@ -824,14 +824,14 @@ func (p *Parser) array() (Expr, error) {
 		return ArrayExpr{Elements: elements, Bracket: p.peekBehind()}, nil
 	}
 
-	firstElem, err := p.expression()
+	firstElem, err := p.Expression()
 	if err != nil {
 		return nil, err
 	}
 	elements = append(elements, firstElem)
 
 	for p.match(scanner.COMMA) {
-		elem, err := p.expression()
+		elem, err := p.Expression()
 		if err != nil {
 			return nil, err
 		}
@@ -892,7 +892,7 @@ func (p *Parser) primary() (Expr, error) {
 	}
 
 	if p.match(scanner.LEFT_PAREN) {
-		expr, err := p.expression()
+		expr, err := p.Expression()
 
 		if err != nil {
 			return nil, err

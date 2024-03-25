@@ -58,10 +58,43 @@ func run(source string) int {
 	return 0
 }
 
+func runExpr(source string) {
+	_scanner := scanner.New(source)
+	tokens, err := _scanner.Run()
+
+	if err != nil {
+		printErrors(err)
+		return
+	}
+
+	_parser := parser.New(tokens)
+	expression, err := _parser.Expression()
+
+	if err != nil {
+		printErrors(err)
+		return
+	}
+
+	result, err := _interpreter.Evaluate(expression)
+
+	if err != nil {
+		printErrors(err)
+		return
+	}
+
+	fmt.Println(_interpreter.Stringify(result))
+}
+
 func runFile(filePath string) {
 	source, err := os.ReadFile(filePath)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	if !strings.Contains(filePath, ".") || !strings.HasSuffix(filePath, ".glox") {
+		fmt.Println("Source file should have 'glox' extension.")
+		os.Exit(1)
 	}
 
 	exitCode := run(string(source))
@@ -69,7 +102,6 @@ func runFile(filePath string) {
 }
 
 func repl() {
-	// Todo: Don't use "print(expr);"
 	reader := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -84,10 +116,10 @@ func repl() {
 		}
 
 		if !strings.Contains(line, ";") {
-			line = fmt.Sprintf("print (%s);", line)
+			runExpr(line)
+		} else {
+			run(line)
 		}
-
-		run(line)
 	}
 }
 
